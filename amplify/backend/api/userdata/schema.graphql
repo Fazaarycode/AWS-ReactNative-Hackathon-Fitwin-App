@@ -1,0 +1,12 @@
+type Preferences
+@model(subscriptions: null)
+@auth(
+  rules: [
+    { allow: owner },
+    { allow: private, operations: [read] }
+  ]) {
+  id: ID!
+  email: String!
+  # userData: AWSJSON!,
+  preferences: AWSJSON!
+}
