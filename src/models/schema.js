@@ -10,8 +10,8 @@ export const schema = {
                     "isRequired": true,
                     "attributes": []
                 },
-                "name": {
-                    "name": "name",
+                "email": {
+                    "name": "email",
                     "isArray": false,
                     "type": "String",
                     "isRequired": true,
@@ -21,7 +21,7 @@ export const schema = {
                     "name": "preferences",
                     "isArray": false,
                     "type": "AWSJSON",
-                    "isRequired": false,
+                    "isRequired": true,
                     "attributes": []
                 },
                 "createdAt": {
@@ -80,5 +80,5 @@ export const schema = {
     },
     "enums": {},
     "nonModels": {},
-    "version": "e7e648f626b4ffc4180f8de52fe2d0f4"
+    "version": "4f3fd78a22ae6dd694b75defe9f260d8"
 };

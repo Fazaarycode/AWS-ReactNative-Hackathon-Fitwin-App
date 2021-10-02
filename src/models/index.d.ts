@@ -10,8 +10,8 @@ type PreferencesMetaData = {
 
 export declare class Preferences {
   readonly id: string;
-  readonly name: string;
-  readonly preferences?: string;
+  readonly email: string;
+  readonly preferences: string;
   readonly createdAt?: string;
   readonly updatedAt?: string;
   constructor(init: ModelInit<Preferences, PreferencesMetaData>);

@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import CustomMultiPicker from "react-native-multiple-select-list";
 import { View, Text, StyleSheet, TouchableHighlight, ScrollView } from 'react-native';
-import { Auth } from 'aws-amplify';
+import { Auth, API, graphqlOperation } from 'aws-amplify';
+import { getEncodedJSON } from '../utils/helper';
+import { createPreferences, updatePreferences } from '../graphql/mutations'
+
 
 const Preferences = ({ navigation }) => {
     const userList = [
@@ -53,15 +56,41 @@ const Preferences = ({ navigation }) => {
             </ScrollView>
             <View style={styles.container}>
                 <TouchableHighlight
-                    onPress={() => {
-                        // console.log('All preferences ', preferences)
-                        let payload =  {
-                            id: userData.sub,
-                            email: userData.email,
-                            // ...userData,
-                            preferences: [...preferences.filter(x => x != undefined)]
-                        };
-                        console.log("Payload ", payload)
+                    onPress={ async () => {
+                        // Mutation appears to be lacking Upsert operation
+                        // Hack time
+                        try {
+                        const response = await API.graphql(
+                                graphqlOperation(createPreferences, {
+                                    input : {
+                                        id: userData.sub,
+                                        email: userData.email,
+                                        preferences: getEncodedJSON([...preferences.filter(x => x != undefined)])
+                                      }
+                                })
+                            )
+                        }
+                        // Use 'response' variable to show toast if response code is 200 @TODO
+
+                        catch(err) {
+                            if(err.errors[0].errorType === 'DynamoDB:ConditionalCheckFailedException') {
+                                try { 
+                                    const response = await API.graphql(
+                                        graphqlOperation(updatePreferences, {
+                                            input : {
+                                                id: userData.sub,
+                                                email: userData.email,
+                                                preferences: getEncodedJSON([...preferences.filter(x => x != undefined)])
+                                              }
+                                        })
+                                    )
+                                    // Use 'response' variable to show toast if response code is 200 @TODO
+                                }
+                                catch(err) {
+                                    console.log('Failed operation. ')
+                                }
+                            }
+                        }
                         // Send to AWS 
                     }}
                     underlayColor="white">

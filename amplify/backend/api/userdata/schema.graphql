@@ -10,3 +10,18 @@ type Preferences
   # userData: AWSJSON!,
   preferences: AWSJSON!
 }
+
+type Metrics
+@model(subscriptions: null)
+@auth(
+  rules: [
+    { allow: owner },
+    { allow: private, operations: [read] }
+  ]) {
+  id: ID!
+  email: String!
+  date: AWSDate!
+  startTime: AWSTime!
+  endTime: AWSTime!
+  distanceInMeters: Int!
+}
