@@ -10,6 +10,9 @@ import { Auth } from 'aws-amplify';
 import MyProfile from './src/screens/my-profile-screen';
 import PreferenceScreen from './src/screens/preferences-screen';
 
+import { ToastProvider } from 'react-native-toast-notifications'
+
+
 const App = () => {
   const Stack = createStackNavigator();
 
@@ -17,14 +20,13 @@ useEffect(() => {
   async function fetchUserData() {
     // You can await here
     const user = await Auth.currentAuthenticatedUser();
-    console.log(user);
   }
   fetchUserData();
 }, []); // Or [] if effect doesn't need props or state
 
 
   return (
-    <>
+    <ToastProvider>
       <NavigationContainer>
         <Stack.Navigator initialRouteName="Home">
           <Stack.Screen
@@ -77,7 +79,7 @@ useEffect(() => {
           />
         </Stack.Navigator>
       </NavigationContainer>
-    </>
+    </ToastProvider>
   );
 };
 const styles = StyleSheet.create({

@@ -4,7 +4,12 @@ import { View, Text, StyleSheet, TouchableHighlight, ScrollView } from 'react-na
 import { Auth, API, graphqlOperation } from 'aws-amplify';
 import { getEncodedJSON } from '../utils/helper';
 import { createPreferences, updatePreferences } from '../graphql/mutations'
+import { getPreferences } from '../graphql/queries';
 
+import { ToastProvider, useToast } from "react-native-toast-notifications";
+
+
+let data ;
 
 const Preferences = ({ navigation }) => {
     const userList = [
@@ -19,18 +24,32 @@ const Preferences = ({ navigation }) => {
 
     const [preferences, setPreferences] = useState([]);
     const [userData, setUserData] = useState({});
+    const [previousPref, setPreviousPreference] = useState([]);
+    const [, forceRender] = useState({});
+
+    const toast = useToast();
+
+
     // Remove undefineds from preferences[] when sending
-    
+
     useEffect(() => {
         async function fetchUserData() {
-          // You can await here
-          const data = await Auth.currentAuthenticatedUser();
-          setUserData(data.attributes);
+            // You can await here
+            data = await Auth.currentAuthenticatedUser();
+            setUserData(data.attributes);
+            // Get current user's preferences if exists already.   
+            const res = await API.graphql(graphqlOperation(getPreferences, {id: data.attributes.sub}));
+            setPreviousPreference(JSON.parse(res.data.getPreferences.preferences));
+            console.log(JSON.parse(res.data.getPreferences.preferences))
+            forceRender({});
+
         }
         fetchUserData();
-      }, []);
-    
+    }, []);
+
+
     return (
+        <ToastProvider>
         <View>
             <ScrollView>
                 <CustomMultiPicker
@@ -41,7 +60,6 @@ const Preferences = ({ navigation }) => {
                     placeholderTextColor={'#757575'}
                     returnValue={"label"} // label or value
                     callback={(res) => {
-                        // console.log(res);
                         setPreferences(res);
                     }} // callback, array of selected items
                     rowBackgroundColor={"#eee"}
@@ -52,42 +70,45 @@ const Preferences = ({ navigation }) => {
                     selectedIconName={"ios-checkmark-circle-outline"}
                     unselectedIconName={"ios-radio-button-off-outline"}
                     scrollViewHeight={400}
+                    // selected = {['Italian Restaurants', 'Gym and Fitness']}
+                    // selected = {previousPref}
                 />
             </ScrollView>
             <View style={styles.container}>
                 <TouchableHighlight
-                    onPress={ async () => {
+                    onPress={async () => {
                         // Mutation appears to be lacking Upsert operation
                         // Hack time
                         try {
-                        const response = await API.graphql(
+                            const response = await API.graphql(
                                 graphqlOperation(createPreferences, {
-                                    input : {
+                                    input: {
                                         id: userData.sub,
                                         email: userData.email,
                                         preferences: getEncodedJSON([...preferences.filter(x => x != undefined)])
-                                      }
+                                    }
                                 })
                             )
+                            if(response.createdAt || response.updatedAt) { 
+                                toast.show("Success!");
+                            }
                         }
-                        // Use 'response' variable to show toast if response code is 200 @TODO
-
-                        catch(err) {
-                            if(err.errors[0].errorType === 'DynamoDB:ConditionalCheckFailedException') {
-                                try { 
+                        catch (err) {
+                            if (err.errors[0].errorType === 'DynamoDB:ConditionalCheckFailedException') {
+                                try {
                                     const response = await API.graphql(
                                         graphqlOperation(updatePreferences, {
-                                            input : {
+                                            input: {
                                                 id: userData.sub,
                                                 email: userData.email,
                                                 preferences: getEncodedJSON([...preferences.filter(x => x != undefined)])
-                                              }
+                                            }
                                         })
-                                    )
-                                    // Use 'response' variable to show toast if response code is 200 @TODO
+                                    );
+                                    toast.show("Success!");
                                 }
-                                catch(err) {
-                                    console.log('Failed operation. ')
+                                catch (err) {
+                                    console.log('Failed operation. ', err)
                                 }
                             }
                         }
@@ -100,7 +121,7 @@ const Preferences = ({ navigation }) => {
                 </TouchableHighlight>
             </View>
         </View>
-
+        </ToastProvider>
 
     );
 }
