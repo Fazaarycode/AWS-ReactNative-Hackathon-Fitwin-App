@@ -1,6 +1,6 @@
 import React, {useEffect, useState} from 'react';
 import {API} from 'aws-amplify';
-import {SafeAreaView, StatusBar, Text, StyleSheet, TouchableOpacity, View, Button, Image} from 'react-native';
+import {SafeAreaView, StatusBar, Text, StyleSheet, TouchableOpacity, View, Button, Image, Dimensions} from 'react-native';
 import { FWCoupon, FWHealthData, FWHealthTarget } from '../utils/HealthDataTypes';
 import AppleHealthKitWrapper from '../utils/AppleHealthKitWrapper';
 
@@ -19,6 +19,8 @@ import { useCounterStore, CounterStoreContext } from '../utils//counter.store';
 import { useStepStore, StepStoreContext } from '../utils/step.store';
 
 import * as configData from '../config/config.json';
+
+import { SwiperFlatList } from 'react-native-swiper-flatlist';
 
 const debugFrame = false;
 
@@ -66,7 +68,7 @@ const HomeScreen = observer((props) => {
 
   const loadInitialCoupons = ():FWCoupon[] => {
     const {coupons} = configData;
-    console.log(`John > configData=${JSON.stringify(coupons,null,2)}`);
+    // console.log(`John > configData=${JSON.stringify(coupons,null,2)}`);
     const couponsTyped = coupons.map((x:any) => x as FWCoupon);
     return couponsTyped;
   }
@@ -216,7 +218,8 @@ const HomeScreen = observer((props) => {
     ]
   };
 
-  console.log(`Coupon 0 info = ${JSON.stringify(coupons[0],null,2)}`);
+  console.log(`Coupon number of  = ${coupons.length}`);
+  const colors = ['tomato', 'thistle', 'skyblue', 'teal'];
   
   return (
     <>
@@ -258,8 +261,60 @@ const HomeScreen = observer((props) => {
             <Text style={styles.distText}>{distData.value} km</Text>
           </>
         }
+        {
+        <View>
+          <Text style={styles.sectionTitle}>Coupons</Text>
+          <SwiperFlatList
+            autoplay
+            autoplayDelay={2} 
+            autoplayLoop index={0} 
+            showPagination
+            data={coupons}         
+            renderItem={({ item }) => (
+              <View style={[styles.slideChild, { backgroundColor: 'transparent' }]}>
+                {/* <Text style={styles.slideText}>{item}</Text> */}
+                <Image          
+                  style={styles.slideImage}
+                  source={{uri: `data:${item.contentType};base64,${item.imgData}`}}
+                />
+              </View>
+            )}
+          >
+            {/* {coupons.map((slide, index) => {
+              <View style={[styles.slideChild, { backgroundColor: 'tomato' }]}>
+                <Text style={styles.slideText}>{slide.name}</Text>
+              </View>
+              // <View key={`slide-${index}`} style={styles.slideChild}>                
+              // <Image
+              //   // style={{width: coupons[0].width, height: coupons[0].height}}
+              //   style={{width: 300, height: 200, resizeMode:"contain"}}
+              //   source={{uri: `data:${coupons[1].contentType};base64,${coupons[1].imgData}`}}
+              // />
+              // </View>
+            })
+
+            } */}
+            {/* <View style={[styles.slideChild, { backgroundColor: 'tomato' }]}>
+                <Text style={styles.slideText}>1</Text>
+              </View>
+              <View style={[styles.slideChild, { backgroundColor: 'thistle' }]}>
+                <Text style={styles.slideText}>2</Text>
+              </View>
+              <View style={[styles.slideChild, { backgroundColor: 'skyblue' }]}>
+                <Text style={styles.slideText}>3</Text>
+              </View>
+              <View style={[styles.slideChild, { backgroundColor: 'teal' }]}>
+                <Text style={styles.slideText}>4</Text>
+              </View> */}
+            
+          </SwiperFlatList>
+        </View>
+        // <View>
+        //   <Text style={styles.sectionTitle}>Coupons</Text>
+        // </View>
+        }
       {
-        coupons.length > 0 && 
+        false && coupons.length > 0 && 
         <>
         <Text style={styles.sectionTitle}>Coupons</Text>
         <Image
@@ -296,7 +351,16 @@ const HomeScreen = observer((props) => {
   );
 });
 
-const styles = StyleSheet.create({
+const { width } = Dimensions.get('window');
+const styles = StyleSheet.create({    
+  
+  slideContainer: { flex: 1, backgroundColor: 'blue', width, height: 300},
+  slideChild: { width, height: 300, justifyContent: 'center' },
+  slideText: { fontSize: width * 0.2, textAlign: 'center' },  
+  slideImage: {width, height: 200, resizeMode:"contain"},
+
+  testContainer: { flex: 1, backgroundColor: 'blue', width, height: 300},
+
   baseText: {
     fontFamily: "Verdana-BoldItalic"
   },

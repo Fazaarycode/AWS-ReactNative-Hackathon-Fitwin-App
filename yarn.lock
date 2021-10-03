@@ -7916,6 +7916,11 @@ react-native-svg@^12.1.1:
     css-select "^2.1.0"
     css-tree "^1.0.0-alpha.39"
 
+react-native-swiper-flatlist@^3.0.15:
+  version "3.0.15"
+  resolved "https://registry.yarnpkg.com/react-native-swiper-flatlist/-/react-native-swiper-flatlist-3.0.15.tgz#2b8b9e78d023a16c27bb732956217ec8990f47f8"
+  integrity sha512-ajWTGChYE2KuJ/LsHShZG5KnM6ZfytMER3YqeDMqJLtFmxUqq9SFrfsvV7SBChbGtKg82rVx9lzfsAwp9q/qJw==
+
 react-native-toast-notifications@^3.2.2:
   version "3.2.2"
   resolved "https://registry.yarnpkg.com/react-native-toast-notifications/-/react-native-toast-notifications-3.2.2.tgz#884af05c2a8d32ed6a4e49a6d1a7720053b25ec8"
