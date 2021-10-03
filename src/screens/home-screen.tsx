@@ -1,7 +1,7 @@
 import React, {useEffect, useState} from 'react';
 import {API} from 'aws-amplify';
-import {SafeAreaView, StatusBar, Text, StyleSheet, TouchableOpacity, View, Button} from 'react-native';
-import { FWHealthData, FWHealthTarget } from '../utils/HealthDataTypes';
+import {SafeAreaView, StatusBar, Text, StyleSheet, TouchableOpacity, View, Button, Image} from 'react-native';
+import { FWCoupon, FWHealthData, FWHealthTarget } from '../utils/HealthDataTypes';
 import AppleHealthKitWrapper from '../utils/AppleHealthKitWrapper';
 
 import {
@@ -17,6 +17,8 @@ import { observer } from 'mobx-react-lite';
 
 import { useCounterStore, CounterStoreContext } from '../utils//counter.store';
 import { useStepStore, StepStoreContext } from '../utils/step.store';
+
+import * as configData from '../config/config.json';
 
 const debugFrame = false;
 
@@ -61,18 +63,26 @@ const HomeScreen = observer((props) => {
     console.log(`FITWIN > HomeScreen > END`);
 
   }, []);
+
+  const loadInitialCoupons = ():FWCoupon[] => {
+    const {coupons} = configData;
+    console.log(`John > configData=${JSON.stringify(coupons,null,2)}`);
+    const couponsTyped = coupons.map((x:any) => x as FWCoupon);
+    return couponsTyped;
+  }
   
   const [stepsData, setStepsData] = useState<FWHealthData>({valid: false, value: 0, startDate: null, endDate: null});
   const [distData, setDistData] = useState<FWHealthData>({valid: false, value: 0, startDate: null, endDate: null});
+  const [coupons, setCoupons] = useState(loadInitialCoupons());
 
-  const [displaySteps, setDisplaySteps] = useState(0);
-  const [displayStepPercent, setDisplayStepPercent] = useState(0);
-  // const [displayDist, setDisplayDist] = useState(0); // m
 
   // TODO >>>>
   // Need to retreive target data HERE
   const stepsTarget:FWHealthTarget = {valid: true, targetValue: 10000};
   const distTarget:FWHealthTarget = {valid: true, targetValue: 10000};
+
+  
+  // TODO >>>>
 
   const tryInitAppleHealthKit = async () => {
 
@@ -205,6 +215,8 @@ const HomeScreen = observer((props) => {
       }
     ]
   };
+
+  console.log(`Coupon 0 info = ${JSON.stringify(coupons[0],null,2)}`);
   
   return (
     <>
@@ -214,7 +226,7 @@ const HomeScreen = observer((props) => {
         
         { stepsData.valid &&
           <View style={{flexDirection: 'column', justifyContent: 'center'}}>            
-            <Text style={styles.stepTitle}>Steps Goal Attained</Text>
+            <Text style={styles.sectionTitle}>Steps Goal Attained</Text>
             <ProgressChart
               data={chartData}
               width={400}
@@ -241,8 +253,28 @@ const HomeScreen = observer((props) => {
           </View>
         }
         {distData.valid &&
-          <Text style={styles.distText}>{distData.value} km</Text>
+          <>
+            <Text style={styles.sectionTitle}>Distance Goal</Text>
+            <Text style={styles.distText}>{distData.value} km</Text>
+          </>
         }
+      {
+        coupons.length > 0 && 
+        <>
+        <Text style={styles.sectionTitle}>Coupons</Text>
+        <Image
+          // style={{width: coupons[0].width, height: coupons[0].height}}
+          style={{width: 300, height: 200, resizeMode:"contain"}}
+          source={{uri: `data:${coupons[0].contentType};base64,${coupons[0].imgData}`}}
+        />
+        <Image
+          // style={{width: coupons[0].width, height: coupons[0].height}}
+          style={{width: 300, height: 200, resizeMode:"contain"}}
+          source={{uri: `data:${coupons[1].contentType};base64,${coupons[1].imgData}`}}
+        />
+        </>
+      }
+
         {/* {productsList && (
           <ProductList
             productList={productsList}
@@ -258,6 +290,7 @@ const HomeScreen = observer((props) => {
           <Button title="debugStepsStore" onPress={showStepsDB} />
         </>
         }
+
       </SafeAreaView>
     </>
   );
@@ -267,7 +300,7 @@ const styles = StyleSheet.create({
   baseText: {
     fontFamily: "Verdana-BoldItalic"
   },
-  stepTitle: {
+  sectionTitle: {
     fontSize: 30,
     fontWeight: "bold",
     fontFamily: "Verdana-BoldItalic",
