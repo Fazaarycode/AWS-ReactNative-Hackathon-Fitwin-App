@@ -1,44 +1,34 @@
 import React, {useEffect, useState} from 'react';
-import {API} from 'aws-amplify';
-import {SafeAreaView, StatusBar, TouchableOpacity} from 'react-native';
-// import {listProducts} from '../../graphql/queries';
-// import ProductList from '../components/ProductList';
+import {SafeAreaView, StatusBar, TouchableOpacity , Image, View, Text} from 'react-native';
+import { Auth, API, graphqlOperation } from 'aws-amplify';
+import { getCoupons } from '../graphql/queries';
+
 
 const HomeScreen = (props) => {
-  // const [productsList, setProducts] = useState([]);
-  // const [refreshing, setRefreshing] = useState(false);
-  // const fetchProducts = async () => {
-  //   try {
-  //     const products = await API.graphql({query: listProducts});
-  //     if (products.data.listProducts) {
-  //       console.log('Products: \n');
-  //       console.log(products);
-  //       setProducts(products.data.listProducts.items);
-  //     }
-  //   } catch (e) {
-  //     console.log(e.message);
-  //   }
-  // };
-  // useEffect(() => {
-  //   fetchProducts();
-  // }, []);
-  // const onRefresh = async () => {
-  //   setRefreshing(true);
-  //   await fetchProducts();
-  //   setRefreshing(false);
-  // };
+  // const [userData, setUserData] = useState({});
+  const [imageUrl, setImageUrl] = useState('');
+
+  useEffect(() => {
+    async function fetchUserData() {
+        // You can await here
+        let data = await Auth.currentAuthenticatedUser();
+        // setUserData(data.attributes);
+        // Get current user's preferences if exists already.   
+        const res = await API.graphql(graphqlOperation(getCoupons, {id: data.attributes.sub}));
+        console.log(res.data.getCoupons.imgData)
+        setImageUrl(res.data.getCoupons.imgData); 
+    }
+    fetchUserData();
+}, [imageUrl]);
   return (
     <>
-      {/* <StatusBar barStyle="dark-content" />
-      <SafeAreaView>
-        {productsList && (
-          <ProductList
-            productList={productsList}
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-          />
-        )}
-      </SafeAreaView> */}
+      <View>
+      <Text> Hey there </Text>
+      <Image
+                style={{width: 297, height: 196, resizeMode:"contain"}}
+                source={{uri: `${imageUrl}`}}
+              />
+      </View>
     </>
   );
 };

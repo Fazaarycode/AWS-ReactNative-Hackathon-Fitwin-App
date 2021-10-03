@@ -69,3 +69,50 @@ export const listMetrics = /* GraphQL */ `
     }
   }
 `;
+export const getCoupons = /* GraphQL */ `
+  query GetCoupons($id: ID!) {
+    getCoupons(id: $id) {
+      id
+      email
+      date
+      couponId
+      contentType
+      width
+      height
+      imgData
+      type
+      name
+      validDate
+      createdAt
+      updatedAt
+      owner
+    }
+  }
+`;
+export const listCoupons = /* GraphQL */ `
+  query ListCoupons(
+    $filter: ModelCouponsFilterInput
+    $limit: Int
+    $nextToken: String
+  ) {
+    listCoupons(filter: $filter, limit: $limit, nextToken: $nextToken) {
+      items {
+        id
+        email
+        date
+        couponId
+        contentType
+        width
+        height
+        imgData
+        type
+        name
+        validDate
+        createdAt
+        updatedAt
+        owner
+      }
+      nextToken
+    }
+  }
+`;

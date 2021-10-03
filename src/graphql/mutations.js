@@ -100,3 +100,72 @@ export const deleteMetrics = /* GraphQL */ `
     }
   }
 `;
+export const createCoupons = /* GraphQL */ `
+  mutation CreateCoupons(
+    $input: CreateCouponsInput!
+    $condition: ModelCouponsConditionInput
+  ) {
+    createCoupons(input: $input, condition: $condition) {
+      id
+      email
+      date
+      couponId
+      contentType
+      width
+      height
+      imgData
+      type
+      name
+      validDate
+      createdAt
+      updatedAt
+      owner
+    }
+  }
+`;
+export const updateCoupons = /* GraphQL */ `
+  mutation UpdateCoupons(
+    $input: UpdateCouponsInput!
+    $condition: ModelCouponsConditionInput
+  ) {
+    updateCoupons(input: $input, condition: $condition) {
+      id
+      email
+      date
+      couponId
+      contentType
+      width
+      height
+      imgData
+      type
+      name
+      validDate
+      createdAt
+      updatedAt
+      owner
+    }
+  }
+`;
+export const deleteCoupons = /* GraphQL */ `
+  mutation DeleteCoupons(
+    $input: DeleteCouponsInput!
+    $condition: ModelCouponsConditionInput
+  ) {
+    deleteCoupons(input: $input, condition: $condition) {
+      id
+      email
+      date
+      couponId
+      contentType
+      width
+      height
+      imgData
+      type
+      name
+      validDate
+      createdAt
+      updatedAt
+      owner
+    }
+  }
+`;

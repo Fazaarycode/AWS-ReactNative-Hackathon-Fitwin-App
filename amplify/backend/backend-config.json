@@ -42,5 +42,13 @@
         }
       }
     }
+  },
+  "notifications": {
+    "fitwinXN3M7": {
+      "service": "Pinpoint",
+      "channels": [
+        "APNS"
+      ]
+    }
   }
 }

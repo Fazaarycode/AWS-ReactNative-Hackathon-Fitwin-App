@@ -79,6 +79,16 @@ query {
   }
 }
 
+# Create Coupon
+# User id aka id isnt important - it is for avoid creating relationships as we test access.
+mutation create {
+  createCoupons(input: {contentType: "image/png", couponId: "1a", date: "2021-04-10", email: "mohamed.fazaary@servian.com", imgData: "https://awsrn-runtimeterror.s3.amazonaws.com/Screenshot+2021-10-04+at+12.14.54+AM.png", id: "23620773-0e58-4eed-a159-e9eb810a60a3", height: 197, width: 296}) {
+    imgData
+    height
+    id
+    width
+  }
+}
 
 // Javascript How To: 
 
@@ -91,3 +101,6 @@ date.toISOString().substring(0, date.indexOf('T') )
 
 let time = new Date().toISOString()
 time.substring(time.indexOf('T') + 1, time.indexOf('Z'))
+
+
+
