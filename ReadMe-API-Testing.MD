@@ -91,3 +91,17 @@ date.toISOString().substring(0, date.indexOf('T') )
 
 let time = new Date().toISOString()
 time.substring(time.indexOf('T') + 1, time.indexOf('Z'))
+
+
+### Home Screen ,tsx
+[TODO] Coupon and Target data from cloud yet to be integrated
+
+const [coupons, setCoupons] = useState(loadInitialCoupons());
+const stepsTarget:FWHealthTarget = {valid: true, targetValue: 10000};
+const distTarget:FWHealthTarget = {valid: true, targetValue: 10000};
+
+TODO: 
+useEffect to periodically query cloud for following data:
+(1) Coupon
+(2) step target
+(3) dist target
