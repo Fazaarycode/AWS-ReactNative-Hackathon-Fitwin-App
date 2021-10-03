@@ -25,3 +25,24 @@ type Metrics
   endTime: AWSTime!
   distanceInMeters: Int!
 }
+
+type Coupons
+@model(subscriptions: null)
+@auth(
+  rules: [
+    { allow: owner },
+    { allow: private, operations: [read] }
+  ]) {
+  id: ID!
+  email: String!
+  date: AWSDate!
+  
+  couponId: ID!
+  contentType: String!
+  width: Int
+  height: Int
+  imgData: String!
+  type: String
+  name: String
+  validDate: AWSDate
+}
