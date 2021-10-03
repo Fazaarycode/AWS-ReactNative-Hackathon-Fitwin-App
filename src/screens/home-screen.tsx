@@ -1,6 +1,6 @@
 import React, {useEffect, useState} from 'react';
 import {API} from 'aws-amplify';
-import {SafeAreaView, StatusBar, Text, TouchableOpacity} from 'react-native';
+import {SafeAreaView, StatusBar, Text, StyleSheet, TouchableOpacity, View} from 'react-native';
 import { FWHealthData, FWHealthTarget } from '../utils/HealthDataTypes';
 import AppleHealthKitWrapper from '../utils/AppleHealthKitWrapper';
 
@@ -15,17 +15,6 @@ import {
 
 // import {listProducts} from '../../graphql/queries';
 // import ProductList from '../components/ProductList';
-
-const chartConfig = {
-  backgroundGradientFrom: "#1E2923",
-  backgroundGradientFromOpacity: 0,
-  backgroundGradientTo: "#08130D",
-  backgroundGradientToOpacity: 0.5,
-  color: (opacity = 1) => `rgba(26, 255, 146, ${opacity})`,
-  strokeWidth: 2, // optional, default 3
-  barPercentage: 0.5,
-  useShadowColorFromDataset: false // optional
-};
 
 const HomeScreen = (props) => {
   // const [productsList, setProducts] = useState([]);
@@ -55,6 +44,7 @@ const HomeScreen = (props) => {
     console.log(`FITWIN > HomeScreen > START`);
 
     tryInitAppleHealthKit();
+    // refreshHealthData();
 
     console.log(`FITWIN > HomeScreen > END`);
 
@@ -67,12 +57,27 @@ const HomeScreen = (props) => {
 
     await AppleHealthKitWrapper.init();
     await AppleHealthKitWrapper.getAuthStatus();
-    // const height1 = await AppleHealthKitWrapper.getLatestHeight();
-    // console.log(`HealthKit: height=${JSON.stringify(height1,null,2)}`);
-    
-    // const weight1 = await AppleHealthKitWrapper.getLatestWeight();
-    // console.log(`HealthKit: weight=${JSON.stringify(weight1,null,2)}`);
 
+    const todayDate = new Date();
+    let yesterdayDate = new Date();
+    yesterdayDate.setDate(todayDate.getDate() - 1);
+
+    const step1 = await AppleHealthKitWrapper.getStepCount(todayDate);
+    console.log(`HealthKit: stepCount=${JSON.stringify(step1,null,2)}`);
+    // let step1data = {...step1};
+    let step1data = step1 as FWHealthData;
+    step1data.valid = true;
+    setStepsData(step1data);
+
+    const res2 = await AppleHealthKitWrapper.getDistanceWalkingRunning(todayDate);
+    console.log(`HealthKit: dist walking running=${JSON.stringify(res2,null,2)}`);
+    let dist1data = res2 as FWHealthData;
+    dist1data.valid = true;
+    setDistData(dist1data);
+    
+  }
+
+  const refreshHealthData = async (numDays: number) => {
     const todayDate = new Date();
     let yesterdayDate = new Date();
     yesterdayDate.setDate(todayDate.getDate() - 1);
@@ -98,31 +103,61 @@ const HomeScreen = (props) => {
 
 
   // calculate step related features
-  const stepsPercent = (stepsData?.value||0) / stepsTarget.targetValue;
-
+  const numSteps = stepsData?.value||0;
+  const stepsPercent = Math.floor(numSteps * 100 / stepsTarget.targetValue);
+  
   // setup charts
   const chartData = {
     labels: ["Step"], // optional
     data: [stepsPercent]
   };
 
-  
+  const barChartData = {
+    labels: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+    datasets: [
+      {
+        data: [10, 20, 45, 28, 80, 99, 43]
+      }
+    ]
+  };
   
   return (
     <>
       <StatusBar barStyle="dark-content" />
       <SafeAreaView>
-        <Text>Hello World John 2277!</Text>
+        {/* <Text>Hello World John 2277!</Text> */}
+        
         {stepsData.valid && 
-          <ProgressChart
-            data={chartData}
-            width={400}
-            height={220}
-            strokeWidth={16}
-            radius={64}
-            chartConfig={chartConfig}
-            hideLegend={false}
-          />}
+          <View style={{flexDirection: 'column', justifyContent: 'center'}}>            
+            <Text style={styles.stepTitle}>Steps Goal Attained</Text>
+            <ProgressChart
+              data={chartData}
+              width={400}
+              height={220}
+              strokeWidth={16}
+              radius={64}
+              chartConfig={chartConfig}
+              hideLegend={true}
+            />
+            <View style={styles.stepTextBlock}>
+              <Text style={styles.stepText}>{numSteps} steps</Text>
+              <Text style={styles.stepText2}>{stepsPercent}%</Text>
+            </View>
+            {/* <BarChart
+              // style={graphStyle}
+              data={barChartData}
+              width={400}
+              height={220}
+              yAxisLabel={""}
+              yAxisSuffix={""}
+              chartConfig={chartConfig}
+              verticalLabelRotation={30}
+            /> */}
+          </View>
+        }
+        {distData.valid &&
+          <Text style={styles.distText}>{distData.value} km</Text>
+        }
         {/* {productsList && (
           <ProductList
             productList={productsList}
@@ -134,4 +169,63 @@ const HomeScreen = (props) => {
     </>
   );
 };
+
+const styles = StyleSheet.create({
+  baseText: {
+    fontFamily: "Verdana-BoldItalic"
+  },
+  stepTitle: {
+    fontSize: 30,
+    fontWeight: "bold",
+    fontFamily: "Verdana-BoldItalic",
+    textAlign: "center"
+    // position: 'absolute', 
+    // right: 0,
+    // left: 20,
+    // top: 0,
+  },
+  stepTextBlock: {
+    position: 'absolute', 
+    right: 0,
+    top: 100,
+  },
+  stepText: {
+    fontSize: 20,
+    fontWeight: "bold",
+    fontFamily: "Verdana-BoldItalic",
+    // position: 'absolute', 
+    // right: 0,
+    // top: 50,
+  },
+  stepText2: {
+    fontSize: 20,
+    fontWeight: "bold",
+    fontFamily: "Verdana-BoldItalic",
+    textAlign: "right",
+    // position: 'absolute', 
+    // right: 0,
+    // top: 50,
+  },
+  distText: {
+    fontSize: 50,
+    fontWeight: "bold",
+    fontFamily: "Verdana-BoldItalic",    
+    backgroundColor: "pink",
+  }
+});
+//#a34075
+const chartConfig = {
+  backgroundGradientFrom: "#a34075",
+  backgroundGradientFromOpacity: 0,
+  backgroundGradientTo: "#a34075",
+  backgroundGradientToOpacity: 0.5,
+  color: (opacity = 1) => `rgba(9,21,102, ${opacity})`,
+  propsForLabels: {
+    fontSize: 15
+  },
+  strokeWidth: 2, // optional, default 3
+  barPercentage: 0.5,
+  useShadowColorFromDataset: false // optional
+};
+
 export default HomeScreen;

@@ -35,7 +35,8 @@ useEffect(() => {
             options={({ navigation }) => ({
               title: 'Home',
               headerStyle: {
-                backgroundColor: '#ff9300',
+                // backgroundColor: '#ff9300',
+                backgroundColor: '#a34075',
               },
               headerRight: () => (
                 <TouchableOpacity
