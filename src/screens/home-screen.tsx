@@ -5,6 +5,9 @@ import { FWCoupon, FWHealthData, FWHealthTarget, FWStepData } from '../utils/Hea
 import AppleHealthKitWrapper from '../utils/AppleHealthKitWrapper';
 import * as Location from 'expo-location';
 
+import * as BackgroundFetch from 'expo-background-fetch';
+import * as TaskManager from 'expo-task-manager';
+
 import {
   LineChart,
   BarChart,
@@ -28,6 +31,9 @@ import { listCoupons } from '../graphql/queries';
 import { createMetrics } from '../graphql/mutations';
 import { FWConstants } from '../config/constants';
 import { getISODaysAgoString, distanceBetweenTwoPoints } from '../utils/helper';
+
+//====================================================================================================
+const BACKGROUND_FETCH_TASK = 'background-fetch';
 
 const debugFrame = true;
 
