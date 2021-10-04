@@ -1,7 +1,7 @@
 import React, {useEffect, useState} from 'react';
 import { Auth, API, graphqlOperation } from 'aws-amplify';
 import {SafeAreaView, StatusBar, Text, StyleSheet, TouchableOpacity, View, Button, Image, Dimensions, ScrollView} from 'react-native';
-import { FWCoupon, FWHealthData, FWHealthTarget } from '../utils/HealthDataTypes';
+import { FWCoupon, FWHealthData, FWHealthTarget, FWStepData } from '../utils/HealthDataTypes';
 import AppleHealthKitWrapper from '../utils/AppleHealthKitWrapper';
 import * as Location from 'expo-location';
 
@@ -27,45 +27,48 @@ import { useNotificationStore } from '../utils/notification.store';
 import { listCoupons } from '../graphql/queries';
 import { createMetrics } from '../graphql/mutations';
 import { FWConstants } from '../config/constants';
-import { getISODaysAgoString } from '../utils/helper';
+import { getISODaysAgoString, distanceBetweenTwoPoints } from '../utils/helper';
 
 const debugFrame = true;
 
 
-// import {listProducts} from '../../graphql/queries';
-// import ProductList from '../components/ProductList';
-
 const HomeScreen = observer((props) => {
-  // const [productsList, setProducts] = useState([]);
-  // const [refreshing, setRefreshing] = useState(false);
-  // const fetchProducts = async () => {
-  //   try {
-  //     const products = await API.graphql({query: listProducts});
-  //     if (products.data.listProducts) {
-  //       console.log('Products: \n');
-  //       console.log(products);
-  //       setProducts(products.data.listProducts.items);
-  //     }
-  //   } catch (e) {
-  //     console.log(e.message);
-  //   }
-  // };
-  // useEffect(() => {
-  //   fetchProducts();
-  // }, []);
-  // const onRefresh = async () => {
-  //   setRefreshing(true);
-  //   await fetchProducts();
-  //   setRefreshing(false);
-  // };
-
-  // ============
+  
   const [userData, setUserData] = useState<any>({});
   const { count, increment, decrement } = useCounterStore(); // OR useContext(CounterStoreContext)
   const { stepsDb, setSteps, getSteps } = useStepStore(); // OR useContext(CounterStoreContext)
   const { notificationDb, notificationCount, popNotification, tryPop } = useNotificationStore(); // OR useContext(CounterStoreContext)
   const [location, setLocation] = useState(null);
   const [locationPermission, setLocationPermission] = useState(false);
+
+  const loadInitialCoupons = ():FWCoupon[] => {
+    const {coupons} = configData;
+    // console.log(`John > configData=${JSON.stringify(coupons,null,2)}`);
+    const couponsTyped = coupons.map((x:any) => x as FWCoupon);
+    return couponsTyped;
+  }
+
+  const getInitialStepData = ():FWStepData => {
+    return {
+      id: 0,
+      email: userData.email,
+      date: "",
+      startTime: "",
+      endTime: "",
+      dailySteps: 0,
+      deltaSteps: 0,
+      dailyDist: 0,
+      deltaDist: 0,
+      latitude: 0,
+      longitude: 0,
+    };
+  }
+  
+  const [stepsData, setStepsData] = useState<FWHealthData>({valid: false, value: 0, startDate: null, endDate: null});
+  const [distData, setDistData] = useState<FWHealthData>({valid: false, value: 0, startDate: null, endDate: null});
+  const [coupons, setCoupons] = useState(loadInitialCoupons());
+  const [prevStepData, setPrevStepData] = useState(getInitialStepData());
+  const [timeLeft, setTimeLeft] = useState(0);
 
   useEffect(() => {
     console.log(`FITWIN > HomeScreen > START`);
@@ -78,6 +81,7 @@ const HomeScreen = observer((props) => {
     tryGetCoupons();
 
     tryObtainLocationPermission();
+    setTimeLeft(10);
 
     console.log(`FITWIN > HomeScreen > END`);
 
@@ -97,18 +101,31 @@ const HomeScreen = observer((props) => {
     console.log(`FITWIN > NEW Notificaiton changes! END`);
   }, [notificationCount]);
 
-  const loadInitialCoupons = ():FWCoupon[] => {
-    const {coupons} = configData;
-    // console.log(`John > configData=${JSON.stringify(coupons,null,2)}`);
-    const couponsTyped = coupons.map((x:any) => x as FWCoupon);
-    return couponsTyped;
+  const calculateTimeLeft = () => {
+    return timeLeft + 10; // increment 10s to cause 
   }
-  
-  const [stepsData, setStepsData] = useState<FWHealthData>({valid: false, value: 0, startDate: null, endDate: null});
-  const [distData, setDistData] = useState<FWHealthData>({valid: false, value: 0, startDate: null, endDate: null});
-  const [coupons, setCoupons] = useState(loadInitialCoupons());
 
-
+  useEffect(() => {
+    let timer:NodeJS.Timeout;
+    if (timeLeft > 0) {
+      timer = setTimeout(() => {
+        const thisTimeLeft = calculateTimeLeft();
+        getCurrentStepDistMetric();
+        setTimeLeft(thisTimeLeft);
+        console.log(`Timer executed ✅✅✅✅`);
+      }, FWConstants.PERIOD_SEND_HEALTHDATE);
+    }    
+    else {
+      console.log(`Timer Expired! 🛑🛑🛑🛑`);
+    }
+    
+    // clear timeout if the component is unmounted
+    return () => {
+      if (timer)
+        clearTimeout(timer);
+    }
+  }, [timeLeft]);
+ 
   // TODO >>>>
   // Need to retreive target data HERE
   const stepsTarget:FWHealthTarget = {valid: true, targetValue: 10000};
@@ -194,58 +211,10 @@ const HomeScreen = observer((props) => {
     setLocationPermission(true);
   }
 
-  // const sendMetrics = async () => {
-
-  //   const todayObj = new Date();
-
-  //   const todayStr = todayObj.toISOString().split('T')[0];
-  //   console.log(`todayStr = ${todayStr}`);
-  //   let _count = 0;
-
-  //   for (let i = 0; i < FWConstants.SAMPLE_BATCH_DAYS; i += 1) {
-  //     // going from today, query health kit for data and then set to store
-  //     // const iDateObj = new Date(todayObj.valueOf() - (i * 24 * 60 * 60 * 1000));
-  //     // const iDateStr = iDateObj.toISOString().split('T')[0];
-
-  //     let iDateStr = getISODaysAgoString(todayObj, i);
-  //     console.log(`${i} dateLabelStr = ${iDateStr}`);
-
-  //     // see if it is in the store
-  //     if (iDateStr in stepsDb) {
-  //       // tally the value
-  //       _count += stepsDb[iDateStr];
-
-  //       //
-  //       //  "startDate": "2021-09-29T21:09:00.000+1000",
-  //       // "endDate": "2021-09-29T21:09:00.000+1000"
-
-  //       // steps data
-  //       // send graphql create
-  //       try {
-  //         const response = await API.graphql(
-  //           graphqlOperation(createMetrics, 
-  //             {
-  //               input: {
-  //                 id: userData.sub,
-  //                 email: userData.email,
-  //                 // preferences: getEncodedJSON([...preferences.filter(x => x != undefined)])
-  //               }
-  //             }));
-
-  //         if ('createdAt' in response || 'updatedAt' in response) { 
-  //           //toast.show("Success!");
-  //         }       
-  //       }
-  //       catch (err) {}
-  //     }
-      
-  //   } // end for
-
-  // }
-
   const getCurrentStepDistMetric = async () => {
-    console.log(`getCurrentStepDistMetric > START`);
     const todayDate = new Date();
+    console.log(`getCurrentStepDistMetric > START = ${todayDate.valueOf()}`);
+    
     const step1 = await AppleHealthKitWrapper.getStepCount(todayDate);
     console.log(`HealthKit: stepCount=${JSON.stringify(step1,null,2)}`);
     // let step1data = {...step1};
@@ -259,6 +228,75 @@ const HomeScreen = observer((props) => {
     dist1data.valid = true;
     // setDistData(dist1data);
     console.log(`getCurrentStepDistMetric > END`);
+
+    const location = await Location.getCurrentPositionAsync({});
+
+    console.log(`Obtained Location = ${JSON.stringify(location,null,2)} @${(new Date()).valueOf()}`);
+
+    // only calculate distance moved if not from first pass
+    const distMoved = (prevStepData.id !== 0) ? distanceBetweenTwoPoints({lat: location.coords.latitude, lng: location.coords.longitude},
+                                                {lat: prevStepData.latitude, lng: prevStepData.longitude}) 
+                                                : 0;
+
+    console.log(`DIST-MOVED = ${distMoved} @${(new Date()).valueOf()}`);
+    let isDiffVerdict = true;
+    // check whether current data is different to previous
+    switch (true) {
+      case (step1data.value !== prevStepData.dailySteps):
+        break;
+      case (dist1data.value !== prevStepData.dailyDist):
+        break;
+      case (distMoved > FWConstants.MINIMUM_DIST_MOVED):
+      // case (location.coords.latitude !== prevStepData.latitude):
+        // might need to relax later
+        // break;
+      // case (location.coords.longitude !== prevStepData.longitude):
+        // might need to relax later
+        console.log(`Larger movement than expected!`);
+        break;
+      default:
+        isDiffVerdict = false;
+        break;
+    }
+
+    if (isDiffVerdict) {    
+      // prepare payload against previous payload
+      const metricPayload:FWStepData = {
+        id: Date.now(),
+        email: userData.email,
+        date: getISODaysAgoString(todayDate, 0),
+        startTime: (prevStepData.id !== 0 ? prevStepData.endTime: todayDate.toISOString()), // previous timestamp
+        endTime: todayDate.toISOString(), // this timestamp
+        dailySteps: step1data.value,
+        deltaSteps: (prevStepData.id !== 0 ? (step1data.value - prevStepData.dailySteps): 0),
+        dailyDist: dist1data.value,
+        deltaDist: (prevStepData.id !== 0 ? (dist1data.value - prevStepData.dailyDist): 0),
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,  
+        deltaLocDist: distMoved,
+      }
+      console.log(`FITWIN > current Metric Payload = ${JSON.stringify(metricPayload,null,2)}`);
+
+      // send the payload
+      try {
+        const response = await API.graphql(
+          graphqlOperation(createMetrics, { input: {...metricPayload} })
+          );
+
+        console.log(`GRAPHQL response = ${JSON.stringify(response,null,2)}`);
+
+        if ('createdAt' in response || 'updatedAt' in response) { 
+          console.log(`GRAPHQL MUTATION createMetrics Success!`);
+        }       
+      }
+      catch (err) {
+        console.log(err);
+      }
+
+      // save over to prevStepData
+      setPrevStepData(metricPayload);
+    }
+    console.log(`getCurrentStepDistMetric > END END`);
   }
 
   const getCurrentLocation = async () => {
@@ -352,44 +390,41 @@ const HomeScreen = observer((props) => {
     
 
   return (
-    <>
-      <StatusBar barStyle="dark-content" />
-      <SafeAreaView>
-        {/* <Text>Hello World John 2277!</Text> */}
-        <ScrollView>
-        { stepsData.valid &&
-          <View style={{flexDirection: 'column', justifyContent: 'center'}}>            
-            <Text style={styles.sectionTitle}>Steps Goal Attained</Text>
-            <ProgressChart
-              data={chartData}
-              width={400}
-              height={220}
-              strokeWidth={16}
-              radius={64}
-              chartConfig={chartConfig}
-              hideLegend={true}
-            />
-            <View style={styles.stepTextBlock}>
-              <Text style={styles.stepText}>{stepsInAWeek} steps</Text>
-              <Text style={styles.stepText2}>{stepsPercent}%</Text>
-            </View>
-            {/* <BarChart
-              // style={graphStyle}
-              data={barChartData}
-              width={400}
-              height={220}
-              yAxisLabel={""}
-              yAxisSuffix={""}
-              chartConfig={chartConfig}
-              verticalLabelRotation={30}
-            /> */}
+  <>
+    <StatusBar barStyle="dark-content" />
+    <SafeAreaView>
+      <ScrollView>
+        <View style={{flexDirection: 'column', justifyContent: 'center'}}>            
+          <Text style={styles.sectionTitle}>Steps Goal Attained</Text>
+          <ProgressChart
+            data={chartData}
+            width={400}
+            height={220}
+            strokeWidth={16}
+            radius={64}
+            chartConfig={chartConfig}
+            hideLegend={true}
+          />
+          <View style={styles.stepTextBlock}>
+            <Text style={styles.stepText}>{stepsInAWeek} steps</Text>
+            <Text style={styles.stepText2}>{stepsPercent}%</Text>
           </View>
-        }
+          {/* <BarChart
+            // style={graphStyle}
+            data={barChartData}
+            width={400}
+            height={220}
+            yAxisLabel={""}
+            yAxisSuffix={""}
+            chartConfig={chartConfig}
+            verticalLabelRotation={30}
+          /> */}
+        </View>
         {distData.valid &&
-          <>
-            <Text style={styles.sectionTitle}>Distance Goal</Text>
-            <Text style={styles.distText}>{distData.value} km</Text>
-          </>
+        <>
+          <Text style={styles.sectionTitle}>Distance Goal</Text>
+          <Text style={styles.distText}>{distData.value} km</Text>
+        </>
         }
         {
         <View>
@@ -410,78 +445,39 @@ const HomeScreen = observer((props) => {
               </View>
             )}
           >
-            {/* {coupons.map((slide, index) => {
-              <View style={[styles.slideChild, { backgroundColor: 'tomato' }]}>
-                <Text style={styles.slideText}>{slide.name}</Text>
-              </View>
-              // <View key={`slide-${index}`} style={styles.slideChild}>                
-              // <Image
-              //   // style={{width: coupons[0].width, height: coupons[0].height}}
-              //   style={{width: 300, height: 200, resizeMode:"contain"}}
-              //   source={{uri: `data:${coupons[1].contentType};base64,${coupons[1].imgData}`}}
-              // />
-              // </View>
-            })
-
-            } */}
-            {/* <View style={[styles.slideChild, { backgroundColor: 'tomato' }]}>
-                <Text style={styles.slideText}>1</Text>
-              </View>
-              <View style={[styles.slideChild, { backgroundColor: 'thistle' }]}>
-                <Text style={styles.slideText}>2</Text>
-              </View>
-              <View style={[styles.slideChild, { backgroundColor: 'skyblue' }]}>
-                <Text style={styles.slideText}>3</Text>
-              </View>
-              <View style={[styles.slideChild, { backgroundColor: 'teal' }]}>
-                <Text style={styles.slideText}>4</Text>
-              </View> */}
-            
           </SwiperFlatList>
-        </View>
-        // <View>
-        //   <Text style={styles.sectionTitle}>Coupons</Text>
-        // </View>
+        </View>        
         }
-      {
-        false && coupons.length > 0 && 
-        <>
-        <Text style={styles.sectionTitle}>Coupons</Text>
-        <Image
-          // style={{width: coupons[0].width, height: coupons[0].height}}
-          style={{width: 300, height: 200, resizeMode:"contain"}}
-          source={{uri: `data:${coupons[0].contentType};base64,${coupons[0].imgData}`}}
-        />
-        <Image
-          // style={{width: coupons[0].width, height: coupons[0].height}}
-          style={{width: 300, height: 200, resizeMode:"contain"}}
-          source={{uri: `data:${coupons[1].contentType};base64,${coupons[1].imgData}`}}
-        />
-        </>
-      }
-
-        {/* {productsList && (
-          <ProductList
-            productList={productsList}
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-          />
-        )} */}
+        {false && coupons.length > 0 && 
+          <>
+            <Text style={styles.sectionTitle}>Coupons</Text>
+            <Image
+              // style={{width: coupons[0].width, height: coupons[0].height}}
+              style={{width: 300, height: 200, resizeMode:"contain"}}
+              source={{uri: `data:${coupons[0].contentType};base64,${coupons[0].imgData}`}}
+            />
+            <Image
+              // style={{width: coupons[0].width, height: coupons[0].height}}
+              style={{width: 300, height: 200, resizeMode:"contain"}}
+              source={{uri: `data:${coupons[1].contentType};base64,${coupons[1].imgData}`}}
+            />
+          </>
+        }
         {debugFrame && 
-        <>
-          <Text>{`Notification DB ${notificationDb.length} messages!`}</Text>
-          <Text>{`Clicked ${count} times!`}</Text>
-          <Button title="Increment" onPress={increment} />
-          <Button title="Decrement" onPress={decrement} />
-          <Button title="debugStepsStore" onPress={showStepsDB} />
-          <Button title="showCurMetric" onPress={getCurrentStepDistMetric} />
-          <Button title="getCurrentLocation" onPress={getCurrentLocation} />
-          {/* <Button title="sendmetrics" onPress={sendMetrics} /> */}
-        </>
+          <>
+            <Text>{`Notification DB ${notificationDb.length} messages!`}</Text>
+            <Text>{`Clicked ${count} times!`}</Text>
+            <Button title="Increment" onPress={increment} />
+            <Button title="Decrement" onPress={decrement} />
+            <Button title="debugStepsStore" onPress={showStepsDB} />
+            <Button title="showCurMetric" onPress={getCurrentStepDistMetric} />
+            <Button title="getCurrentLocation" onPress={getCurrentLocation} />
+            {/* <Button title="sendmetrics" onPress={sendMetrics} /> */}
+          </>
         }
       </ScrollView>
-      </SafeAreaView>
-    </>
+    </SafeAreaView>
+  </>
   );
 });
 
@@ -553,3 +549,4 @@ const chartConfig = {
 };
 
 export default HomeScreen;
+

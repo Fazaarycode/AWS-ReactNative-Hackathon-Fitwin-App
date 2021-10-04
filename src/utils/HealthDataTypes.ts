@@ -34,7 +34,8 @@ export interface FWStepData {
   deltaSteps: number;
   dailyDist: number;
   deltaDist: number;
-  latitute: number;
+  latitude: number;
   longitude: number;  
+  deltaLocDist: number;
 }
  

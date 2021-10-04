@@ -28,8 +28,9 @@ type Metrics
   deltaSteps: Int!
   dailyDist: Int!
   deltaDist: Int!
-  latitute: Float!
-  longitude: Float!  
+  latitude: Float!
+  longitude: Float! 
+  deltaLocDist: Float! 
 }
 
 type Coupons

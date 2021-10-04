@@ -45,8 +45,9 @@ export const getMetrics = /* GraphQL */ `
       deltaSteps
       dailyDist
       deltaDist
-      latitute
+      latitude
       longitude
+      deltaLocDist
       createdAt
       updatedAt
       owner
@@ -71,8 +72,9 @@ export const listMetrics = /* GraphQL */ `
         deltaSteps
         dailyDist
         deltaDist
-        latitute
+        latitude
         longitude
+        deltaLocDist
         createdAt
         updatedAt
         owner

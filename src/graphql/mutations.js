@@ -62,8 +62,9 @@ export const createMetrics = /* GraphQL */ `
       deltaSteps
       dailyDist
       deltaDist
-      latitute
+      latitude
       longitude
+      deltaLocDist
       createdAt
       updatedAt
       owner
@@ -86,8 +87,9 @@ export const updateMetrics = /* GraphQL */ `
       deltaSteps
       dailyDist
       deltaDist
-      latitute
+      latitude
       longitude
+      deltaLocDist
       createdAt
       updatedAt
       owner
@@ -110,8 +112,9 @@ export const deleteMetrics = /* GraphQL */ `
       deltaSteps
       dailyDist
       deltaDist
-      latitute
+      latitude
       longitude
+      deltaLocDist
       createdAt
       updatedAt
       owner
