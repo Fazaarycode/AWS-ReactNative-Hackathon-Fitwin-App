@@ -40,7 +40,9 @@ export const getMetrics = /* GraphQL */ `
       date
       startTime
       endTime
-      distanceInMeters
+      type
+      value
+      deltaValue
       createdAt
       updatedAt
       owner
@@ -60,7 +62,9 @@ export const listMetrics = /* GraphQL */ `
         date
         startTime
         endTime
-        distanceInMeters
+        type
+        value
+        deltaValue
         createdAt
         updatedAt
         owner
@@ -82,6 +86,7 @@ export const getCoupons = /* GraphQL */ `
       imgData
       type
       name
+      state
       validDate
       createdAt
       updatedAt
@@ -107,6 +112,7 @@ export const listCoupons = /* GraphQL */ `
         imgData
         type
         name
+        state
         validDate
         createdAt
         updatedAt

@@ -3,10 +3,10 @@ import React from 'react';
 import { makeObservable, action, observable } from 'mobx';
 
 class StepStore {
-  // count = 0;
-  // date label as key '2021-10-03', value in number
-
+  
   stepsDb = {};
+  // value obj is a json object
+  // { value: number }
 
   constructor() {
     makeObservable(this, {

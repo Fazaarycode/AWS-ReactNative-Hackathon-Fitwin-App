@@ -1,6 +1,6 @@
 import React, {useEffect, useState} from 'react';
-import {API} from 'aws-amplify';
-import {SafeAreaView, StatusBar, Text, StyleSheet, TouchableOpacity, View, Button, Image, Dimensions} from 'react-native';
+import { Auth, API, graphqlOperation } from 'aws-amplify';
+import {SafeAreaView, StatusBar, Text, StyleSheet, TouchableOpacity, View, Button, Image, Dimensions, ScrollView} from 'react-native';
 import { FWCoupon, FWHealthData, FWHealthTarget } from '../utils/HealthDataTypes';
 import AppleHealthKitWrapper from '../utils/AppleHealthKitWrapper';
 
@@ -22,6 +22,11 @@ import * as configData from '../config/config.json';
 
 import { SwiperFlatList } from 'react-native-swiper-flatlist';
 import { useNotificationStore } from '../utils/notification.store';
+
+import { listCoupons } from '../graphql/queries';
+import { createMetrics } from '../graphql/mutations';
+import { FWConstants } from '../config/constants';
+import { getISODaysAgoString } from '../utils/helper';
 
 const debugFrame = true;
 
@@ -54,6 +59,7 @@ const HomeScreen = observer((props) => {
   // };
 
   // ============
+  const [userData, setUserData] = useState<any>({});
   const { count, increment, decrement } = useCounterStore(); // OR useContext(CounterStoreContext)
   const { stepsDb, setSteps, getSteps } = useStepStore(); // OR useContext(CounterStoreContext)
   const { notificationDb, notificationCount, popNotification, tryPop } = useNotificationStore(); // OR useContext(CounterStoreContext)
@@ -61,8 +67,12 @@ const HomeScreen = observer((props) => {
   useEffect(() => {
     console.log(`FITWIN > HomeScreen > START`);
 
+    fetchUserData();
+
     tryInitAppleHealthKit();
     // refreshHealthData();
+
+    tryGetCoupons();
 
     console.log(`FITWIN > HomeScreen > END`);
 
@@ -101,6 +111,12 @@ const HomeScreen = observer((props) => {
 
   
   // TODO >>>>
+
+  const fetchUserData = async () => {
+    // You can await here
+    const data = await Auth.currentAuthenticatedUser();
+    setUserData(data.attributes);
+  }
 
   const tryInitAppleHealthKit = async () => {
 
@@ -157,6 +173,79 @@ const HomeScreen = observer((props) => {
     
   }
 
+  const tryGetCoupons = async () => {
+
+    const coupons = await API.graphql(graphqlOperation(listCoupons));
+    console.log(`GRAPHQL > listCoupons = ${JSON.stringify(coupons,null,2)}`);
+  }
+
+  // const sendMetrics = async () => {
+
+  //   const todayObj = new Date();
+
+  //   const todayStr = todayObj.toISOString().split('T')[0];
+  //   console.log(`todayStr = ${todayStr}`);
+  //   let _count = 0;
+
+  //   for (let i = 0; i < FWConstants.SAMPLE_BATCH_DAYS; i += 1) {
+  //     // going from today, query health kit for data and then set to store
+  //     // const iDateObj = new Date(todayObj.valueOf() - (i * 24 * 60 * 60 * 1000));
+  //     // const iDateStr = iDateObj.toISOString().split('T')[0];
+
+  //     let iDateStr = getISODaysAgoString(todayObj, i);
+  //     console.log(`${i} dateLabelStr = ${iDateStr}`);
+
+  //     // see if it is in the store
+  //     if (iDateStr in stepsDb) {
+  //       // tally the value
+  //       _count += stepsDb[iDateStr];
+
+  //       //
+  //       //  "startDate": "2021-09-29T21:09:00.000+1000",
+  //       // "endDate": "2021-09-29T21:09:00.000+1000"
+
+  //       // steps data
+  //       // send graphql create
+  //       try {
+  //         const response = await API.graphql(
+  //           graphqlOperation(createMetrics, 
+  //             {
+  //               input: {
+  //                 id: userData.sub,
+  //                 email: userData.email,
+  //                 // preferences: getEncodedJSON([...preferences.filter(x => x != undefined)])
+  //               }
+  //             }));
+
+  //         if ('createdAt' in response || 'updatedAt' in response) { 
+  //           //toast.show("Success!");
+  //         }       
+  //       }
+  //       catch (err) {}
+  //     }
+      
+  //   } // end for
+
+  // }
+
+  const getCurrentStepDistMetric = async () => {
+    console.log(`getCurrentStepDistMetric > START`);
+    const todayDate = new Date();
+    const step1 = await AppleHealthKitWrapper.getStepCount(todayDate);
+    console.log(`HealthKit: stepCount=${JSON.stringify(step1,null,2)}`);
+    // let step1data = {...step1};
+    let step1data = step1 as FWHealthData;
+    step1data.valid = true;
+    // setStepsData(step1data);
+    
+    const res2 = await AppleHealthKitWrapper.getDistanceWalkingRunning(todayDate);
+    console.log(`HealthKit: dist walking running=${JSON.stringify(res2,null,2)}`);
+    let dist1data = res2 as FWHealthData;
+    dist1data.valid = true;
+    // setDistData(dist1data);
+    console.log(`getCurrentStepDistMetric > END`);
+  }
+
   const getWeekTotalSteps = () => {
     const todayObj = new Date();
 
@@ -164,10 +253,11 @@ const HomeScreen = observer((props) => {
     console.log(`todayStr = ${todayStr}`);
     let _count = 0;
 
-    for (let i = 0; i < 7; i += 1) {
+    for (let i = 0; i < FWConstants.SAMPLE_BATCH_DAYS; i += 1) {
       // going from today, query health kit for data and then set to store
-      const iDateObj = new Date(todayObj.valueOf() - (i * 24 * 60 * 60 * 1000));
-      const iDateStr = iDateObj.toISOString().split('T')[0];
+      // const iDateObj = new Date(todayObj.valueOf() - (i * 24 * 60 * 60 * 1000));
+      // const iDateStr = iDateObj.toISOString().split('T')[0];
+      let iDateStr = getISODaysAgoString(todayObj, i);
       console.log(`${i} dateLabelStr = ${iDateStr}`);
 
       // see if it is in the store
@@ -245,7 +335,7 @@ const HomeScreen = observer((props) => {
       <StatusBar barStyle="dark-content" />
       <SafeAreaView>
         {/* <Text>Hello World John 2277!</Text> */}
-        
+        <ScrollView>
         { stepsData.valid &&
           <View style={{flexDirection: 'column', justifyContent: 'center'}}>            
             <Text style={styles.sectionTitle}>Steps Goal Attained</Text>
@@ -363,9 +453,11 @@ const HomeScreen = observer((props) => {
           <Button title="Increment" onPress={increment} />
           <Button title="Decrement" onPress={decrement} />
           <Button title="debugStepsStore" onPress={showStepsDB} />
+          <Button title="showCurMetric" onPress={getCurrentStepDistMetric} />
+          {/* <Button title="sendmetrics" onPress={sendMetrics} /> */}
         </>
         }
-
+      </ScrollView>
       </SafeAreaView>
     </>
   );
