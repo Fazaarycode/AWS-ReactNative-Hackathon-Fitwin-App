@@ -57,9 +57,13 @@ export const createMetrics = /* GraphQL */ `
       date
       startTime
       endTime
-      type
-      value
-      deltaValue
+      description
+      dailySteps
+      deltaSteps
+      dailyDist
+      deltaDist
+      latitute
+      longitude
       createdAt
       updatedAt
       owner
@@ -77,9 +81,13 @@ export const updateMetrics = /* GraphQL */ `
       date
       startTime
       endTime
-      type
-      value
-      deltaValue
+      description
+      dailySteps
+      deltaSteps
+      dailyDist
+      deltaDist
+      latitute
+      longitude
       createdAt
       updatedAt
       owner
@@ -97,9 +105,13 @@ export const deleteMetrics = /* GraphQL */ `
       date
       startTime
       endTime
-      type
-      value
-      deltaValue
+      description
+      dailySteps
+      deltaSteps
+      dailyDist
+      deltaDist
+      latitute
+      longitude
       createdAt
       updatedAt
       owner

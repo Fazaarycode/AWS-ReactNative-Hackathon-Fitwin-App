@@ -3,6 +3,7 @@ import { Auth, API, graphqlOperation } from 'aws-amplify';
 import {SafeAreaView, StatusBar, Text, StyleSheet, TouchableOpacity, View, Button, Image, Dimensions, ScrollView} from 'react-native';
 import { FWCoupon, FWHealthData, FWHealthTarget } from '../utils/HealthDataTypes';
 import AppleHealthKitWrapper from '../utils/AppleHealthKitWrapper';
+import * as Location from 'expo-location';
 
 import {
   LineChart,
@@ -63,6 +64,8 @@ const HomeScreen = observer((props) => {
   const { count, increment, decrement } = useCounterStore(); // OR useContext(CounterStoreContext)
   const { stepsDb, setSteps, getSteps } = useStepStore(); // OR useContext(CounterStoreContext)
   const { notificationDb, notificationCount, popNotification, tryPop } = useNotificationStore(); // OR useContext(CounterStoreContext)
+  const [location, setLocation] = useState(null);
+  const [locationPermission, setLocationPermission] = useState(false);
 
   useEffect(() => {
     console.log(`FITWIN > HomeScreen > START`);
@@ -73,6 +76,8 @@ const HomeScreen = observer((props) => {
     // refreshHealthData();
 
     tryGetCoupons();
+
+    tryObtainLocationPermission();
 
     console.log(`FITWIN > HomeScreen > END`);
 
@@ -179,6 +184,16 @@ const HomeScreen = observer((props) => {
     console.log(`GRAPHQL > listCoupons = ${JSON.stringify(coupons,null,2)}`);
   }
 
+  const tryObtainLocationPermission = async () => {
+    let { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') {
+      // setErrorMsg('Permission to access location was denied');      
+      return;
+    }
+    console.log(`Location Permission Allowed!`);
+    setLocationPermission(true);
+  }
+
   // const sendMetrics = async () => {
 
   //   const todayObj = new Date();
@@ -244,6 +259,12 @@ const HomeScreen = observer((props) => {
     dist1data.valid = true;
     // setDistData(dist1data);
     console.log(`getCurrentStepDistMetric > END`);
+  }
+
+  const getCurrentLocation = async () => {
+    let location = await Location.getCurrentPositionAsync({});
+    console.log(`FITWIN > Current Location = ${JSON.stringify(location,null,2)}`);
+    setLocation(location);
   }
 
   const getWeekTotalSteps = () => {
@@ -454,6 +475,7 @@ const HomeScreen = observer((props) => {
           <Button title="Decrement" onPress={decrement} />
           <Button title="debugStepsStore" onPress={showStepsDB} />
           <Button title="showCurMetric" onPress={getCurrentStepDistMetric} />
+          <Button title="getCurrentLocation" onPress={getCurrentLocation} />
           {/* <Button title="sendmetrics" onPress={sendMetrics} /> */}
         </>
         }
