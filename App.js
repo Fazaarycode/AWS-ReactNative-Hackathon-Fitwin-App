@@ -10,23 +10,90 @@ import { Auth } from 'aws-amplify';
 import MyProfile from './src/screens/my-profile-screen';
 import PreferenceScreen from './src/screens/preferences-screen';
 
-import { ToastProvider } from 'react-native-toast-notifications'
+import { ToastProvider, useToast } from 'react-native-toast-notifications';
 
+import PushNotificationIOS from '@react-native-community/push-notification-ios';
+
+// import { useCounterStore, CounterStoreContext } from './src/utils//counter.store';
+import { useNotificationStore } from './src/utils//notification.store';
 
 const App = () => {
   const Stack = createStackNavigator();
+  const { pushNotification } = useNotificationStore(); // OR useContext(CounterStoreContext)
 
-useEffect(() => {
-  async function fetchUserData() {
-    // You can await here
-    const user = await Auth.currentAuthenticatedUser();
+  // ############################################################
+  // ##### Notification Related
+  // ############################################################
+  const onRemoteNotification = (notification) => {
+    const isClicked = notification.getData().userInteraction === 1;
+
+    console.log(`FITWIN remote > notification = ${JSON.stringify(notification,null,2)}`);
+
+    const notificationPayload = JSON.parse(notification._alert.body);
+
+    const strMsg = `${notification._alert.title} - ${notificationPayload.name}`;
+    console.log(`FITIN remote > notification strMsg = [${strMsg}], couponId=[${notificationPayload.couponId}]`);
+    pushNotification(notification._alert); // fire a state change
+    // toast.show(strMsg, {
+    //   type: "custom1",
+    //   placement: "top",
+    //   duration: 4000,
+    //   offset: 30,
+    //   animationType: "slide-in | zoom-in",
+    //   data: {
+    //     title: strMsg,
+    //     couponId: notificationPayload.couponId,
+    //   }
+    // });
+
+    if (isClicked) {
+      // Navigate user to another screen
+      console.log(`FITWIN > User clicked notification!!!`);
+    } else {
+      // Do something else with push notification
+      console.log(`FITWIN > User dismissed notification. ~~~`);
+    }
+  };
+  const onRegister = (token) => {
+    console.log('FITWIN > in app registration', token);
   }
-  fetchUserData();
+  const onLocalNotification = (notification) => {
+    console.log('FITWIN > local notification', notification);
+  }
+  // ############################################################
+  // ##### Notification Related
+  // ############################################################
+
+  useEffect(() => {
+    console.log(`FITWIN > useEffect 123`);
+    async function fetchUserData() {
+      // You can await here
+      const user = await Auth.currentAuthenticatedUser();
+    }
+    fetchUserData();
+    console.log(`FITWIN > APNS requestPermissions 1`);
+    PushNotificationIOS.requestPermissions();
+    PushNotificationIOS.checkPermissions(function () {
+      PushNotificationIOS.addEventListener('notification', onRemoteNotification);
+      PushNotificationIOS.addEventListener('register', onRegister);
+      PushNotificationIOS.addEventListener('localNotification', onLocalNotification);
+    });
+    console.log(`FITWIN > APNS requestPermissions 2`);
+
 }, []); // Or [] if effect doesn't need props or state
 
 
   return (
-    <ToastProvider>
+    <ToastProvider
+      renderType={{
+        custom1: (toastItem) => (
+          <View style={{padding: 15, backgroundColor: 'lightgreen'}}>
+            <Text>{toastItem.title}</Text>
+            <Text>{toastItem.couponId}</Text>
+          </View>
+        )
+    }}
+    >
       <NavigationContainer>
         <Stack.Navigator initialRouteName="Home">
           <Stack.Screen

@@ -141,6 +141,14 @@
     uuid "^3.2.1"
     zen-observable-ts "0.8.19"
 
+"@aws-amplify/pushnotification@^4.2.13":
+  version "4.2.13"
+  resolved "https://registry.yarnpkg.com/@aws-amplify/pushnotification/-/pushnotification-4.2.13.tgz#2508e24c43973b342b49983711ed1d9f6bd41c8f"
+  integrity sha512-9iNS6IyM0IV/QCr7nqeqMryKx3r0v9uS13TZixM9fvXtiHmQUoWwtsyWZqYzXTjzbYmINCFuLId1ZBTt9v+jJA==
+  dependencies:
+    "@aws-amplify/core" "4.3.1"
+    "@react-native-community/push-notification-ios" "1.0.3"
+
 "@aws-amplify/storage@4.4.2":
   version "4.4.2"
   resolved "https://registry.npmjs.org/@aws-amplify/storage/-/storage-4.4.2.tgz"
@@ -3449,6 +3457,20 @@
   version "6.0.2"
   resolved "https://registry.npmjs.org/@react-native-community/netinfo/-/netinfo-6.0.2.tgz"
   integrity sha512-HbVIv6p+VAzSqALkfKKNbtSy0TneL7EILIqxiOjt/5weVdTuZ88NRyPNQAZBh6W8QYirXJo3f00ryMk9iLs7gQ==
+
+"@react-native-community/push-notification-ios@1.0.3":
+  version "1.0.3"
+  resolved "https://registry.yarnpkg.com/@react-native-community/push-notification-ios/-/push-notification-ios-1.0.3.tgz#cd2c7f29aeeb431942eda0bd729738fd2b444ae9"
+  integrity sha512-f+Y3lFLt5OBWHDtGHE+PiZH4aLeS8w2D47c0G/S5XpzeGoEeggOiALtou/r6raiVLP+D5CrLkIBMs2U2+LGJhw==
+  dependencies:
+    invariant "^2.2.4"
+
+"@react-native-community/push-notification-ios@^1.10.1":
+  version "1.10.1"
+  resolved "https://registry.yarnpkg.com/@react-native-community/push-notification-ios/-/push-notification-ios-1.10.1.tgz#d52a6d69ac1112df0f79e1d17978077629b76784"
+  integrity sha512-k6bZWUKLif4GjenyTD3aQLwA2VT3bNmt22INO/34lexnpmqkPDZF7nreqbckTHG0Zso9wDTe4N/AZJUC/d8iRg==
+  dependencies:
+    invariant "^2.2.4"
 
 "@react-navigation/core@^6.0.2":
   version "6.0.2"

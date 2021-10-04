@@ -21,8 +21,9 @@ import { useStepStore, StepStoreContext } from '../utils/step.store';
 import * as configData from '../config/config.json';
 
 import { SwiperFlatList } from 'react-native-swiper-flatlist';
+import { useNotificationStore } from '../utils/notification.store';
 
-const debugFrame = false;
+const debugFrame = true;
 
 
 // import {listProducts} from '../../graphql/queries';
@@ -55,6 +56,7 @@ const HomeScreen = observer((props) => {
   // ============
   const { count, increment, decrement } = useCounterStore(); // OR useContext(CounterStoreContext)
   const { stepsDb, setSteps, getSteps } = useStepStore(); // OR useContext(CounterStoreContext)
+  const { notificationDb, notificationCount, popNotification, tryPop } = useNotificationStore(); // OR useContext(CounterStoreContext)
 
   useEffect(() => {
     console.log(`FITWIN > HomeScreen > START`);
@@ -65,6 +67,20 @@ const HomeScreen = observer((props) => {
     console.log(`FITWIN > HomeScreen > END`);
 
   }, []);
+
+  useEffect(() => {
+    console.log(`FITWIN > NEW Notificaiton changes! START`);
+    console.log(JSON.stringify(notificationDb,null,2));
+
+    // try pop
+    const thisNotif = tryPop();
+    if (thisNotif) {
+      console.log(`Show Toast!`);
+      // popNotification();
+    }
+    
+    console.log(`FITWIN > NEW Notificaiton changes! END`);
+  }, [notificationCount]);
 
   const loadInitialCoupons = ():FWCoupon[] => {
     const {coupons} = configData;
@@ -221,6 +237,9 @@ const HomeScreen = observer((props) => {
   console.log(`Coupon number of  = ${coupons.length}`);
   const colors = ['tomato', 'thistle', 'skyblue', 'teal'];
   
+  
+    
+
   return (
     <>
       <StatusBar barStyle="dark-content" />
@@ -339,6 +358,7 @@ const HomeScreen = observer((props) => {
         )} */}
         {debugFrame && 
         <>
+          <Text>{`Notification DB ${notificationDb.length} messages!`}</Text>
           <Text>{`Clicked ${count} times!`}</Text>
           <Button title="Increment" onPress={increment} />
           <Button title="Decrement" onPress={decrement} />
