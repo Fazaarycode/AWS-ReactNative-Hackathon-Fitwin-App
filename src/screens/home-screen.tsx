@@ -4,6 +4,7 @@ import {SafeAreaView, StatusBar, Text, StyleSheet, TouchableOpacity, View, Butto
 import { FWCoupon, FWHealthData, FWHealthTarget, FWStepData, FWUserData } from '../utils/HealthDataTypes';
 import AppleHealthKitWrapper from '../utils/AppleHealthKitWrapper';
 import * as Location from 'expo-location';
+// import {CircularProgressBar} from '../components/CircularProgressBar';
 
 // import * as BackgroundFetch from 'expo-background-fetch';
 // import * as TaskManager from 'expo-task-manager';
@@ -32,6 +33,18 @@ import { createMetrics } from '../graphql/mutations';
 import { FWConstants } from '../config/constants';
 import { getISODaysAgoString, distanceBetweenTwoPoints } from '../utils/helper';
 
+import {
+  VictoryChart,
+  VictoryGroup,
+  VictoryBar,
+  VictoryLegend,
+  VictoryAxis,
+  VictoryPie,
+  VictoryAnimation,
+  VictoryLabel,
+} from 'victory-native';
+import { useDistStore } from '../utils/dist.store';
+
 //====================================================================================================
 const BACKGROUND_FETCH_TASK = 'background-fetch';
 
@@ -42,7 +55,8 @@ const HomeScreen = observer((props) => {
   
   const [userData, setUserData] = useState<FWUserData|undefined>();
   const { count, increment, decrement } = useCounterStore(); // OR useContext(CounterStoreContext)
-  const { stepsDb, setSteps, getSteps } = useStepStore(); // OR useContext(CounterStoreContext)
+  const { stepsDb, setSteps, getSteps } = useStepStore(); // 
+  const { distDb, setDist, getDist } = useDistStore(); // 
   const { notificationDb, notificationCount, popNotification, tryPop } = useNotificationStore(); // OR useContext(CounterStoreContext)
   const [location, setLocation] = useState(null);
   const [locationPermission, setLocationPermission] = useState(false);
@@ -57,7 +71,7 @@ const HomeScreen = observer((props) => {
   const getInitialStepData = ():FWStepData => {
     return {
       id: 0,
-      email: userData?.email||"na",
+      email: "",
       date: "",
       startTime: "",
       endTime: "",
@@ -76,6 +90,7 @@ const HomeScreen = observer((props) => {
   const [coupons, setCoupons] = useState(loadInitialCoupons());
   const [prevStepData, setPrevStepData] = useState(getInitialStepData());
   const [timeLeft, setTimeLeft] = useState(0);
+  const [gBarChartData, setGBarChartData] = useState<any>();
 
   useEffect(() => {
     console.log(`FITWIN > HomeScreen > START`);
@@ -115,9 +130,21 @@ const HomeScreen = observer((props) => {
   useEffect(() => {
     let timer:NodeJS.Timeout;
     if (timeLeft > 0) {
-      timer = setTimeout(() => {
+      timer = setTimeout( async () => {
+
+        // execute an update action
+        const {statsChanged, locationChanged} = await getCurrentStepDistMetric();
+
+        console.log(`useEffect[timeLeft] > getCurrentStepDistMetric > {${statsChanged},${locationChanged}}`);
+
+        if (statsChanged) {
+          const barChartData = await getWeekHealthData();
+          console.log(`💜💜💜💜 barChartData changed! => ${JSON.stringify(barChartData,null,2)}`);
+          setGBarChartData(barChartData);
+        }
+
+        // house keeping
         const thisTimeLeft = calculateTimeLeft();
-        getCurrentStepDistMetric();
         setTimeLeft(thisTimeLeft);
         console.log(`Timer executed 🧡🧡🧡🧡`);
       }, FWConstants.PERIOD_SEND_HEALTHDATE);
@@ -183,9 +210,18 @@ const HomeScreen = observer((props) => {
       console.log(`${i} HealthKit: stepCount=${JSON.stringify(iStep,null,2)}`);      
       let iStepHealthData = iStep as FWHealthData;
 
-
       setSteps(iDateStr, iStepHealthData.value);
+
+      const iDist = await AppleHealthKitWrapper.getDistanceWalkingRunning(iDateObj);
+      console.log(`${i} HealthKit: DistanceWalkingRunning=${JSON.stringify(iDist,null,2)}`);      
+      let iDistHealthData = iDist as FWHealthData;
+      setDist(iDateStr, iDistHealthData.value);
     }
+
+    // build the graph
+    const barChartData = await getWeekHealthData();
+    console.log(`💙💙💙💙 barChartData initialized => ${JSON.stringify(barChartData,null,2)}`);
+    setGBarChartData(barChartData);
     
     const todayDate = new Date('2021-10-03');
     const step1 = await AppleHealthKitWrapper.getStepCount(todayDate);
@@ -249,100 +285,84 @@ const HomeScreen = observer((props) => {
                                                 : 0;
 
     console.log(`DIST-MOVED = ${distMoved} @${(new Date()).valueOf()}`);
-    let isDiffVerdict = true;
-    // check whether current data is different to previous
-    switch (true) {
-      case (step1data.value !== prevStepData.dailySteps):
-        break;
-      case (dist1data.value !== prevStepData.dailyDist):
-        break;
-      case (distMoved > FWConstants.MINIMUM_DIST_MOVED):
-      // case (location.coords.latitude !== prevStepData.latitude):
-        // might need to relax later
-        // break;
-      // case (location.coords.longitude !== prevStepData.longitude):
-        // might need to relax later
-        console.log(`Larger movement than expected!`);
-        break;
-      default:
-        isDiffVerdict = false;
-        break;
+    
+    let _statsChanged = 0;
+    let _locationChanged = 0;
+
+    if ((step1data.value !== prevStepData.dailySteps) || (dist1data.value !== prevStepData.dailyDist)) {
+      _statsChanged += 1;
     }
 
-    if (isDiffVerdict) {    
-      // prepare payload against previous payload
-      const metricPayload:FWStepData = {
-        id: Date.now(),
-        email: userData.email,
-        date: getISODaysAgoString(todayDate, 0),
-        startTime: (prevStepData.id !== 0 ? prevStepData.endTime: todayDate.toISOString()), // previous timestamp
-        endTime: todayDate.toISOString(), // this timestamp
-        dailySteps: step1data.value,
-        deltaSteps: (prevStepData.id !== 0 ? (step1data.value - prevStepData.dailySteps): 0),
-        dailyDist: dist1data.value,
-        deltaDist: (prevStepData.id !== 0 ? (dist1data.value - prevStepData.dailyDist): 0),
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,  
-        deltaLocDist: distMoved,
-      }
-      console.log(`FITWIN > current Metric Payload = ${JSON.stringify(metricPayload,null,2)}`);
-
-      // send the payload
-      try {
-        const response = await API.graphql(
-          graphqlOperation(createMetrics, { input: {...metricPayload} })
-          );
-
-        console.log(`GRAPHQL response = ${JSON.stringify(response,null,2)}`);
-/**
- * "data": {
-    "createMetrics": {
-      "id": "1633414175127",
-      "email": "johnmclee@gmail.com",
-      "date": "2021-10-05",
-      "startTime": "2021-10-05T06:08:34.143Z",
-      "endTime": "2021-10-05T06:09:34.182Z",
-      "description": null,
-      "dailySteps": 14,
-      "deltaSteps": 4,
-      "dailyDist": 6437.376,
-      "deltaDist": 4828.032,
-      "latitude": 37.33233141,
-      "longitude": -122.0312186,
-      "deltaLocDist": 0,
-      "createdAt": "2021-10-05T06:09:35.902Z",
-      "updatedAt": "2021-10-05T06:09:35.902Z",
-      "owner": "johnmclee"
+    if (distMoved > FWConstants.MINIMUM_DIST_MOVED) {
+      _locationChanged += 1;
+      console.log(`Larger movement than expected!`);
     }
-  }
-}
 
- */
-        let graphQLok = false;
-        if ('data' in response && 'createMetrics' in response.data) {
-          // console.log(`GRAPHQL data reponse 1`);
-          const replyPayload = response.data['createMetrics'] as FWStepData;
-          // console.log(`GRAPHQL data reponse 2 > ${JSON.stringify(replyPayload,null,2)}`);
-          if (!!replyPayload?.createdAt && !!replyPayload?.updatedAt && replyPayload?.owner) {
-            console.log(`GRAPHQL mutation success! ✅✅✅✅`);
-            graphQLok = true;
+    if ((_statsChanged + _locationChanged) > 0) {
+     
+      // check email 
+      if (userData) {
+
+        // prepare payload against previous payload
+        const metricPayload:FWStepData = {
+          id: Date.now(),
+          email: userData.email,
+          date: getISODaysAgoString(todayDate, 0),
+          startTime: (prevStepData.id !== 0 ? prevStepData.endTime: todayDate.toISOString()), // previous timestamp
+          endTime: todayDate.toISOString(), // this timestamp
+          dailySteps: step1data.value,
+          deltaSteps: (prevStepData.id !== 0 ? (step1data.value - prevStepData.dailySteps): 0),
+          dailyDist: dist1data.value,
+          deltaDist: (prevStepData.id !== 0 ? (dist1data.value - prevStepData.dailyDist): 0),
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,  
+          deltaLocDist: distMoved,
+        }
+        console.log(`FITWIN > current Metric Payload = ${JSON.stringify(metricPayload,null,2)}`);
+
+        // send the payload
+        try {
+          const response = await API.graphql(
+            graphqlOperation(createMetrics, { input: {...metricPayload} })
+            );
+
+          console.log(`GRAPHQL response = ${JSON.stringify(response,null,2)}`);
+
+          let graphQLok = false;
+          if ('data' in response && 'createMetrics' in response.data) {
+            // console.log(`GRAPHQL data reponse 1`);
+            const replyPayload = response.data['createMetrics'] as FWStepData;
+            // console.log(`GRAPHQL data reponse 2 > ${JSON.stringify(replyPayload,null,2)}`);
+            if (!!replyPayload?.createdAt && !!replyPayload?.updatedAt && replyPayload?.owner) {
+              console.log(`GRAPHQL mutation success! ✅✅✅✅`);
+              graphQLok = true;
+            }
           }
+
+          if (!graphQLok) {
+            console.log(`GRAPHQL mutation success! ❌❌❌❌`);
+          }
+
         }
+        catch (err) {
+          console.log(err);
+        } // end try
 
-        if (!graphQLok) {
-          console.log(`GRAPHQL mutation success! ❌❌❌❌`);
-        }
+        // save over to prevStepData
+        setPrevStepData(metricPayload);
+      } // end if userData
+      //else {
+      // userData is invalid --> don't update previous data
+      //}
 
-      }
-      catch (err) {
-        console.log(err);
-      }
-
-      // save over to prevStepData
-      setPrevStepData(metricPayload);
-    }
+    } // if data changed
+    
     console.log(`getCurrentStepDistMetric > END END`);
-  }
+    return {
+      statsChanged: (_statsChanged > 0),
+      locationChanged: (_locationChanged > 0),
+    };
+  } 
 
   const getCurrentLocation = async () => {
     let location = await Location.getCurrentPositionAsync({});
@@ -356,11 +376,14 @@ const HomeScreen = observer((props) => {
     const todayStr = getISODaysAgoString(todayObj, 0);
     console.log(`todayStr = ${todayStr}`);
 
-    let _count = 0;
-    let chartArray = [];
-    // let barChartData = {
+    // let _count = 0;
+    // let chartArray = [];
+    let barChartData = {
+      steps: [],
+      dists: [],
+    }
 
-    // }
+    // let _stepsArray = [];
 
     for (let i = 0; i < FWConstants.SAMPLE_BATCH_DAYS; i += 1) {
       // going from today, query health kit for data and then set to store
@@ -377,22 +400,49 @@ const HomeScreen = observer((props) => {
       console.log(`${i} HealthKit: dist walking running=${JSON.stringify(iDist,null,2)}`);
       const iDistHealthData = iDist as FWHealthData;
       
-      let chartDispObj = {
-        dateObj: iDateObj,
-        dayOfWeek: iDateObj.getDay(), // Sunday - Saturday : 0 - 6
-        step: iStepHealthData.value,
-        dist:  iDistHealthData.value,
-      }
+      const dayOfTheWeek = iDateObj.getDay(); // Sunday - Saturday : 0 - 6
+
+      // let chartDispObj = {
+      //   dateObj: iDateObj,
+      //   dayOfWeek: iDateObj.getDay(), // Sunday - Saturday : 0 - 6
+      //   step: iStepHealthData.value,
+      //   dist:  iDistHealthData.value,
+      // }
       
       //console.log(`${i} [${iDateStr}] = ${JSON.stringify(chartDispObj,null,2)}`);
-      chartArray.push(chartDispObj);
+      // chartArray.push(chartDispObj);
 
+      let dayOfTheWeekStr = '';
+      switch (dayOfTheWeek) {
+        case 0: dayOfTheWeekStr = "Sun"; break;
+        case 1: dayOfTheWeekStr = "Mon"; break;
+        case 2: dayOfTheWeekStr = "Tue"; break;
+        case 3: dayOfTheWeekStr = "Wed"; break;
+        case 4: dayOfTheWeekStr = "Thu"; break;
+        case 5: dayOfTheWeekStr = "Fri"; break;
+        case 6: dayOfTheWeekStr = "Sat"; break;
+        default: break;
+      }
 
+      barChartData.steps.unshift({x: dayOfTheWeekStr, y: Math.floor(iStepHealthData.value)});
+      barChartData.dists.unshift({x: dayOfTheWeekStr, y: Math.floor(iDistHealthData.value / 1000)});
       
+      // _stepsArray.unshift({day: dayOfTheWeekStr, val: Math.floor(iStepHealthData.value)});
     }
+    /**
+     * const barChartData = {
+    steps: [null, {x: 'Week 2', y: 20}],
+    dists: [
+      {x: 'Week 1', y: 50},
+      {x: 'Week 2', y: 80},
+    ],
+  };
+     */
 
-    console.log(`ChartArray = ${JSON.stringify(chartArray,null,2)}`);
-    
+    console.log(`barChartData = ${JSON.stringify(barChartData,null,2)}`);
+    return barChartData;
+    // console.log(`barChartData = ${JSON.stringify(_stepsArray,null,2)}`);
+    // return _stepsArray;
   }
 
 
@@ -439,32 +489,172 @@ const HomeScreen = observer((props) => {
     data: [stepsPercent]
   };
 
-  // const barChartData = {
-  //   labels: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
-  //   datasets: [
-  //     {
-  //       data: [10, 20, 45, 28, 80, 99, 43],
-  //     },
-  //     {
-  //       data: [20, 30, 100, 2, 23, 34, 67],
-  //     }
-  //   ]
-  // };
 
   console.log(`Coupon number of  = ${coupons.length}`);
   const colors = ['tomato', 'thistle', 'skyblue', 'teal'];
   
+  // const barChartData = {
+  //   steps: [null, {x: 'Week 2', y: 20}],
+  //   dists: [
+  //     {x: 'Week 1', y: 50},
+  //     {x: 'Week 2', y: 80},
+  //   ],
+  // };
+
+  // const barChartData:any = 
+  // const stepsArray1 = await getWeekHealthData();
+
+  const barChartData1:any =
+  {
+    "steps": [
+      {x: "Wed", y: 134},
+      {x: "Thu", y: 0},
+      {x: "Fri", y: 0},
+      {x: "Sat", y: 80},
+      {x: "Sun", y: 170},
+      {x: "Mon", y: 44},
+      {x: "Tue", y: 205}
+    ],
+    "dists": [
+      {x: "Wed", y: 100},
+      {x: "Thu", y: 5},
+      {x: "Fri", y: 10},
+      {x: "Sat", y: 0},
+      {x: "Sun", y: 1},
+      {x: "Mon", y: 27},
+      {x: "Tue", y: 25}
+    ]
+  };
+
   
     
+  const vGraph = (gBarChartData &&
+    <View style={{
+      backgroundColor: '#fafafa',
+      paddingTop: 10,
+      borderRadius: 25,
+      margin: 20,
+    }}>
+    <VictoryChart
+      domainPadding={{ x: 15 }}      
+    >
+      <VictoryAxis label="Week" />
+      <VictoryAxis
+        dependentAxis
+        label="Count"
+        style={{
+          axisLabel: {
+            padding: 35,
+          },
+        }}
+      />
+
+      <VictoryGroup offset={10}>
+        <VictoryBar
+          data={gBarChartData.steps}
+          // x={'day'}
+          // y={'val'}
+          style={{
+            data: {
+              fill: "#e66084",
+            },
+          }}
+        />     
+        <VictoryBar
+          data={gBarChartData.dists}
+          // x={'day'}
+          // y={'val'}
+          style={{
+            data: {
+              fill: "#5344c2", //blue-ish
+            },
+          }}
+        />
+      </VictoryGroup>
+      <VictoryLegend
+        x={Dimensions.get('screen').width / 2 -100}
+        orientation="horizontal"
+        gutter={20}
+        data={[
+          {
+            name: 'Steps',
+            symbol: {
+              fill: '#e66084',
+            },
+          },
+          {
+            name: 'Distance (km)',
+            symbol: {
+              fill: '#5344c2', //blue-ish
+            },
+          },
+        ]}
+      />
+    </VictoryChart>
+    </View>
+  );
+
+  const getPieData = (percent) => {
+    return [{ x: 1, y: percent }, { x: 2, y: 100 - percent }];
+  }
+const vPie1 = (
+  <VictoryPie
+    standalone={false}
+    width={300} height={300}
+    innerRadius={75}
+    data={getPieData(80)}
+  />
+);
+
+  const vPie = (
+    // <div>
+    // <svg viewBox="0 0 400 400" width="100%" height="100%">
+    <View style={{width: 400, height: 400, backgroundColor: 'white'}}>
+      <VictoryPie
+        standalone={false}
+        animate={{ duration: 1000 }}
+        width={400} height={400}
+        data={getPieData(70)}
+        innerRadius={120}
+        cornerRadius={25}
+        labels={() => null}
+        style={{
+          data: { fill: ({ datum }) => {
+            const color = datum.y > 30 ? "green" : "red";
+            return datum.x === 1 ? color : "pink";
+          }
+          }
+        }}
+      />
+      {/* <VictoryLabel
+              textAnchor="middle" verticalAnchor="middle"
+              x={200} y={200}
+              text={`70%`}
+              style={{ fontSize: 45 }}
+            /> */}
+      {/* <VictoryAnimation duration={1000} data={getPieData(70)}>
+        {(newProps) => {
+          return (
+            <VictoryLabel
+              textAnchor="middle" verticalAnchor="middle"
+              x={200} y={200}
+              text={`70%`}
+              style={{ fontSize: 45 }}
+            />
+          );
+        }}
+      </VictoryAnimation> */}
+    </View>
+  );
 
   return (
   <>
     <StatusBar barStyle="dark-content" />
     <SafeAreaView>
-      <ScrollView>
+      <ScrollView style={{backgroundColor: '#1f3690'}}>
         <View style={{flexDirection: 'column', justifyContent: 'center'}}>            
-          <Text style={styles.sectionTitle}>Steps Goal Attained</Text>
-          <ProgressChart
+          <Text style={styles.userNameTitle}>{userData?.username||'User'}</Text>
+          {/* <ProgressChart
             data={chartData}
             width={400}
             height={220}
@@ -476,7 +666,9 @@ const HomeScreen = observer((props) => {
           <View style={styles.stepTextBlock}>
             <Text style={styles.stepText}>{stepsInAWeek} steps</Text>
             <Text style={styles.stepText2}>{stepsPercent}%</Text>
-          </View>
+          </View> */}
+          {/* {<CircularProgressBar/>} */}
+          {vGraph}
           {/* <BarChart
             // style={graphStyle}
             data={barChartData}
@@ -488,12 +680,12 @@ const HomeScreen = observer((props) => {
             verticalLabelRotation={30}
           /> */}
         </View>
-        {distData.valid &&
+        {/* {distData.valid &&
         <>
           <Text style={styles.sectionTitle}>Distance Goal</Text>
           <Text style={styles.distText}>{distData.value} km</Text>
         </>
-        }
+        } */}
         {
         <View>
           <Text style={styles.sectionTitle}>Coupons</Text>
@@ -562,11 +754,20 @@ const styles = StyleSheet.create({
   baseText: {
     fontFamily: "Verdana-BoldItalic"
   },
+  userNameTitle: {
+    fontSize: 30,
+    fontWeight: "500",
+    fontFamily: "Verdana",
+    textAlign: "left",
+    color: "#e5ebf2",
+    marginLeft: 20,
+  },  
   sectionTitle: {
     fontSize: 30,
     fontWeight: "bold",
     fontFamily: "Verdana-BoldItalic",
     textAlign: "center",
+    color: "white",
     // position: 'absolute', 
     // right: 0,
     // left: 20,
