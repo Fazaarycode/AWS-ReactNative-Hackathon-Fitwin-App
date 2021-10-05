@@ -1,12 +1,12 @@
 import React, {useEffect, useState} from 'react';
 import { Auth, API, graphqlOperation } from 'aws-amplify';
 import {SafeAreaView, StatusBar, Text, StyleSheet, TouchableOpacity, View, Button, Image, Dimensions, ScrollView} from 'react-native';
-import { FWCoupon, FWHealthData, FWHealthTarget, FWStepData } from '../utils/HealthDataTypes';
+import { FWCoupon, FWHealthData, FWHealthTarget, FWStepData, FWUserData } from '../utils/HealthDataTypes';
 import AppleHealthKitWrapper from '../utils/AppleHealthKitWrapper';
 import * as Location from 'expo-location';
 
-import * as BackgroundFetch from 'expo-background-fetch';
-import * as TaskManager from 'expo-task-manager';
+// import * as BackgroundFetch from 'expo-background-fetch';
+// import * as TaskManager from 'expo-task-manager';
 
 import {
   LineChart,
@@ -40,7 +40,7 @@ const debugFrame = true;
 
 const HomeScreen = observer((props) => {
   
-  const [userData, setUserData] = useState<any>({});
+  const [userData, setUserData] = useState<FWUserData|undefined>();
   const { count, increment, decrement } = useCounterStore(); // OR useContext(CounterStoreContext)
   const { stepsDb, setSteps, getSteps } = useStepStore(); // OR useContext(CounterStoreContext)
   const { notificationDb, notificationCount, popNotification, tryPop } = useNotificationStore(); // OR useContext(CounterStoreContext)
@@ -57,7 +57,7 @@ const HomeScreen = observer((props) => {
   const getInitialStepData = ():FWStepData => {
     return {
       id: 0,
-      email: userData.email,
+      email: userData?.email||"na",
       date: "",
       startTime: "",
       endTime: "",
@@ -67,6 +67,7 @@ const HomeScreen = observer((props) => {
       deltaDist: 0,
       latitude: 0,
       longitude: 0,
+      deltaLocDist: 0,
     };
   }
   
@@ -118,11 +119,11 @@ const HomeScreen = observer((props) => {
         const thisTimeLeft = calculateTimeLeft();
         getCurrentStepDistMetric();
         setTimeLeft(thisTimeLeft);
-        console.log(`Timer executed ✅✅✅✅`);
+        console.log(`Timer executed 🧡🧡🧡🧡`);
       }, FWConstants.PERIOD_SEND_HEALTHDATE);
     }    
     else {
-      console.log(`Timer Expired! 🛑🛑🛑🛑`);
+      console.log(`Timer Expired! ⏰⏰⏰⏰`);
     }
     
     // clear timeout if the component is unmounted
@@ -143,10 +144,18 @@ const HomeScreen = observer((props) => {
   const fetchUserData = async () => {
     // You can await here
     const data = await Auth.currentAuthenticatedUser();
-    setUserData(data.attributes);
+    console.log(`🏠🏠🏠 User Data > ${JSON.stringify(data,null,2)}`);
+    
+    setUserData({
+      username: data.username,
+      email: data.attributes.email,
+      sub: data.attributes.sub
+    });
   }
 
   const tryInitAppleHealthKit = async () => {
+
+    console.log(`tryInitAppleHealthKit START`);
 
     await AppleHealthKitWrapper.init();
     await AppleHealthKitWrapper.getAuthStatus();
@@ -177,13 +186,6 @@ const HomeScreen = observer((props) => {
 
       setSteps(iDateStr, iStepHealthData.value);
     }
-
-
-    // set to display
-    // const lastWeekSteps = getWeekTotalSteps();
-    // setDisplaySteps(lastWeekSteps);
-    // setDisplayStepPercent(lastWeekSteps * 100 / stepsTarget.targetValue);
-
     
     const todayDate = new Date('2021-10-03');
     const step1 = await AppleHealthKitWrapper.getStepCount(todayDate);
@@ -198,6 +200,8 @@ const HomeScreen = observer((props) => {
     let dist1data = res2 as FWHealthData;
     dist1data.valid = true;
     setDistData(dist1data);
+
+    console.log(`tryInitAppleHealthKit END`);
     
   }
 
@@ -290,10 +294,45 @@ const HomeScreen = observer((props) => {
           );
 
         console.log(`GRAPHQL response = ${JSON.stringify(response,null,2)}`);
+/**
+ * "data": {
+    "createMetrics": {
+      "id": "1633414175127",
+      "email": "johnmclee@gmail.com",
+      "date": "2021-10-05",
+      "startTime": "2021-10-05T06:08:34.143Z",
+      "endTime": "2021-10-05T06:09:34.182Z",
+      "description": null,
+      "dailySteps": 14,
+      "deltaSteps": 4,
+      "dailyDist": 6437.376,
+      "deltaDist": 4828.032,
+      "latitude": 37.33233141,
+      "longitude": -122.0312186,
+      "deltaLocDist": 0,
+      "createdAt": "2021-10-05T06:09:35.902Z",
+      "updatedAt": "2021-10-05T06:09:35.902Z",
+      "owner": "johnmclee"
+    }
+  }
+}
 
-        if ('createdAt' in response || 'updatedAt' in response) { 
-          console.log(`GRAPHQL MUTATION createMetrics Success!`);
-        }       
+ */
+        let graphQLok = false;
+        if ('data' in response && 'createMetrics' in response.data) {
+          // console.log(`GRAPHQL data reponse 1`);
+          const replyPayload = response.data['createMetrics'] as FWStepData;
+          // console.log(`GRAPHQL data reponse 2 > ${JSON.stringify(replyPayload,null,2)}`);
+          if (!!replyPayload?.createdAt && !!replyPayload?.updatedAt && replyPayload?.owner) {
+            console.log(`GRAPHQL mutation success! ✅✅✅✅`);
+            graphQLok = true;
+          }
+        }
+
+        if (!graphQLok) {
+          console.log(`GRAPHQL mutation success! ❌❌❌❌`);
+        }
+
       }
       catch (err) {
         console.log(err);
@@ -311,29 +350,49 @@ const HomeScreen = observer((props) => {
     setLocation(location);
   }
 
-  const getWeekTotalSteps = () => {
+  const getWeekHealthData = async () => {
     const todayObj = new Date();
 
-    const todayStr = todayObj.toISOString().split('T')[0];
+    const todayStr = getISODaysAgoString(todayObj, 0);
     console.log(`todayStr = ${todayStr}`);
+
     let _count = 0;
+    let chartArray = [];
+    // let barChartData = {
+
+    // }
 
     for (let i = 0; i < FWConstants.SAMPLE_BATCH_DAYS; i += 1) {
       // going from today, query health kit for data and then set to store
-      // const iDateObj = new Date(todayObj.valueOf() - (i * 24 * 60 * 60 * 1000));
-      // const iDateStr = iDateObj.toISOString().split('T')[0];
-      let iDateStr = getISODaysAgoString(todayObj, i);
+      const iDateObj = new Date(todayObj.valueOf() - (i * 24 * 60 * 60 * 1000));
+      const iDateStr = iDateObj.toISOString().split('T')[0];
       console.log(`${i} dateLabelStr = ${iDateStr}`);
 
-      // see if it is in the store
-      if (iDateStr in stepsDb) {
-        // tally the value
-        _count += stepsDb[iDateStr];
+      // get step count
+      const iStep = await AppleHealthKitWrapper.getStepCount(iDateObj);
+      console.log(`${i} HealthKit: stepCount=${JSON.stringify(iStep,null,2)}`);      
+      const iStepHealthData = iStep as FWHealthData;
+
+      const iDist = await AppleHealthKitWrapper.getDistanceWalkingRunning(iDateObj);
+      console.log(`${i} HealthKit: dist walking running=${JSON.stringify(iDist,null,2)}`);
+      const iDistHealthData = iDist as FWHealthData;
+      
+      let chartDispObj = {
+        dateObj: iDateObj,
+        dayOfWeek: iDateObj.getDay(), // Sunday - Saturday : 0 - 6
+        step: iStepHealthData.value,
+        dist:  iDistHealthData.value,
       }
+      
+      //console.log(`${i} [${iDateStr}] = ${JSON.stringify(chartDispObj,null,2)}`);
+      chartArray.push(chartDispObj);
+
 
       
     }
-    return _count;
+
+    console.log(`ChartArray = ${JSON.stringify(chartArray,null,2)}`);
+    
   }
 
 
@@ -365,7 +424,7 @@ const HomeScreen = observer((props) => {
   //   setDistData(dist1data);
   // }
 
-  const stepsInAWeek = getWeekTotalSteps();
+  const stepsInAWeek = 100;//getWeekHealthData();
   console.log(`John > 1 week of steps = ${stepsInAWeek}`);
 
 
@@ -380,14 +439,17 @@ const HomeScreen = observer((props) => {
     data: [stepsPercent]
   };
 
-  const barChartData = {
-    labels: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
-    datasets: [
-      {
-        data: [10, 20, 45, 28, 80, 99, 43]
-      }
-    ]
-  };
+  // const barChartData = {
+  //   labels: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+  //   datasets: [
+  //     {
+  //       data: [10, 20, 45, 28, 80, 99, 43],
+  //     },
+  //     {
+  //       data: [20, 30, 100, 2, 23, 34, 67],
+  //     }
+  //   ]
+  // };
 
   console.log(`Coupon number of  = ${coupons.length}`);
   const colors = ['tomato', 'thistle', 'skyblue', 'teal'];
@@ -420,8 +482,8 @@ const HomeScreen = observer((props) => {
             data={barChartData}
             width={400}
             height={220}
-            yAxisLabel={""}
-            yAxisSuffix={""}
+            yAxisLabel={"count"}
+            yAxisSuffix={"#"}
             chartConfig={chartConfig}
             verticalLabelRotation={30}
           /> */}
@@ -474,7 +536,7 @@ const HomeScreen = observer((props) => {
             <Text>{`Notification DB ${notificationDb.length} messages!`}</Text>
             <Text>{`Clicked ${count} times!`}</Text>
             <Button title="Increment" onPress={increment} />
-            <Button title="Decrement" onPress={decrement} />
+            <Button title="getWeekHealthData" onPress={getWeekHealthData} />
             <Button title="debugStepsStore" onPress={showStepsDB} />
             <Button title="showCurMetric" onPress={getCurrentStepDistMetric} />
             <Button title="getCurrentLocation" onPress={getCurrentLocation} />

@@ -26,8 +26,8 @@ type Metrics
   description: String
   dailySteps: Int!
   deltaSteps: Int!
-  dailyDist: Int!
-  deltaDist: Int!
+  dailyDist: Float!
+  deltaDist: Float!
   latitude: Float!
   longitude: Float! 
   deltaLocDist: Float! 

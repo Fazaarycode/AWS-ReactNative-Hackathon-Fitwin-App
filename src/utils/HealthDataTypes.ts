@@ -37,5 +37,13 @@ export interface FWStepData {
   latitude: number;
   longitude: number;  
   deltaLocDist: number;
+  createdAt?: string;
+  updatedAt?: string;
+  owner?: string;
 }
- 
+
+export interface FWUserData {
+  username: string;
+  email: string;
+  sub: string;
+}
