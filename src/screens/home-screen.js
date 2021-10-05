@@ -1,7 +1,10 @@
 import React, {useEffect, useState} from 'react';
-import {SafeAreaView, StatusBar, TouchableOpacity , Image, View, Text} from 'react-native';
+import {SafeAreaView, StatusBar, TouchableOpacity , Image, View, Text, Button} from 'react-native';
 import { Auth, API, graphqlOperation } from 'aws-amplify';
 import { getCoupons } from '../graphql/queries';
+
+// Animations
+import LottieView from 'lottie-react-native';
 
 
 const HomeScreen = (props) => {
@@ -23,11 +26,10 @@ const HomeScreen = (props) => {
   return (
     <>
       <View>
-      <Text> Hey there </Text>
-      <Image
-                style={{width: 297, height: 196, resizeMode:"contain"}}
-                source={{uri: `${imageUrl}`}}
-              />
+      <LottieView source={require('../../assets/l_walking.json')} autoPlay loop />
+        <View>
+          {/* <Button title="Restart Animation" onPress={resetAnimation} /> */}
+        </View>
       </View>
     </>
   );
