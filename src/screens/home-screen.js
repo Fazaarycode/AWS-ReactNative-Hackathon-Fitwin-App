@@ -23,11 +23,14 @@ const HomeScreen = (props) => {
 
   useEffect(() => {
     async function sendTargetCompletionEvent() {
-      Analytics.updateEndpoint({
+      await Analytics.updateEndpoint({
         address: 'b61e7b9465d63955320133feb0fba6aac4b567c68f5a49464e250f6c8064d4b0', // could be a device token, email address, or mobile phone number.
         attributes: {
             // Custom attributes that your app reports to Amazon Pinpoint. You can use these attributes as selection criteria when you create a segment.
             hobbies: [...pref],
+            voucher_claim: ['not_claimed'],
+            status: ['target_complete']
+            
         },
         channelType: 'APNS', // The channel type. Valid values: APNS, GCM
         /** Indicates whether a user has opted out of receiving messages with one of the following values:
@@ -55,11 +58,11 @@ const HomeScreen = (props) => {
             // OPTIONAL - The limit for failed recording retries.
             resendLimit: 5
   
-    }).then(() => {
+    }).then(async () => {
+      await Analytics.record({ name: "target_done", attributes: { id: 'bicboi' } })
       console.log('Event sent!^^')
     }).catch(e => console.log(e));
 
-    await Analytics.record({ name: "faz_testing", attributes: { id: 'bicboi' } })
     }
 
     sendTargetCompletionEvent();

@@ -3,7 +3,7 @@ import { registerRootComponent } from 'expo';
 
 import App from './App';
 
-import Amplify from 'aws-amplify';
+import Amplify, { Analytics } from 'aws-amplify';
 import awsconfig from './src/aws-exports';
 
 Amplify.configure({
@@ -13,6 +13,7 @@ Amplify.configure({
   },
 });
 
+Analytics.record({ name: 'holar' })
 
 // registerRootComponent calls AppRegistry.registerComponent('main', () => App);
 // It also ensures that whether you load the app in Expo Go or in a native build,
