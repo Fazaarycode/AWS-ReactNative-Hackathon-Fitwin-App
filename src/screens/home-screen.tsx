@@ -42,8 +42,8 @@ import {
   VictoryPie,
   VictoryAnimation,
   VictoryLabel,
-} from 'victory';
-// } from 'victory-native';
+// } from 'victory';
+} from 'victory-native';
 
 import { useDistStore } from '../utils/dist.store';
 
