@@ -1,6 +1,6 @@
 {
     "identityPoolName": "fitwin18c0521a_identitypool_18c0521a",
-    "allowUnauthenticatedIdentities": false,
+    "allowUnauthenticatedIdentities": true,
     "resourceNameTruncated": "fitwin18c0521a",
     "userPoolName": "fitwin18c0521a_userpool_18c0521a",
     "autoVerifiedAttributes": [

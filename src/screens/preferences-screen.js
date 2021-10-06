@@ -12,7 +12,7 @@ import { ToastProvider, useToast } from "react-native-toast-notifications";
 let data ;
 
 const Preferences = ({ navigation }) => {
-    const userList = [
+    const preferencesList = [
         "Sports",
         "Indian Grocery",
         "Italian Restaurants",
@@ -20,7 +20,16 @@ const Preferences = ({ navigation }) => {
         "Gym and Fitness",
         "Music and Concerts",
         "Fast Foods",
-        "All Grocery"]
+        "All Grocery",
+        "Gaming",
+        "Clubs & Lounges",
+        "Retail Store",
+        "Appliances",
+        "Indian Restaurants",
+        "Frozen Food",
+        "Standups",
+        "Movies"    
+    ]
 
     const [preferences, setPreferences] = useState([]);
     const [userData, setUserData] = useState({});
@@ -53,7 +62,7 @@ const Preferences = ({ navigation }) => {
         <View>
             <ScrollView>
                 <CustomMultiPicker
-                    options={userList}
+                    options={preferencesList}
                     search={true} // should show search bar?
                     multiple={true} //
                     placeholder={"Search"}

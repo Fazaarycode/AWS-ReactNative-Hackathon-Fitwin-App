@@ -40,7 +40,14 @@ export const getMetrics = /* GraphQL */ `
       date
       startTime
       endTime
-      distanceInMeters
+      description
+      dailySteps
+      deltaSteps
+      dailyDist
+      deltaDist
+      latitude
+      longitude
+      deltaLocDist
       createdAt
       updatedAt
       owner
@@ -60,7 +67,14 @@ export const listMetrics = /* GraphQL */ `
         date
         startTime
         endTime
-        distanceInMeters
+        description
+        dailySteps
+        deltaSteps
+        dailyDist
+        deltaDist
+        latitude
+        longitude
+        deltaLocDist
         createdAt
         updatedAt
         owner
@@ -82,6 +96,7 @@ export const getCoupons = /* GraphQL */ `
       imgData
       type
       name
+      state
       validDate
       createdAt
       updatedAt
@@ -107,7 +122,45 @@ export const listCoupons = /* GraphQL */ `
         imgData
         type
         name
+        state
         validDate
+        createdAt
+        updatedAt
+        owner
+      }
+      nextToken
+    }
+  }
+`;
+export const getAllCoupons = /* GraphQL */ `
+  query GetAllCoupons($id: ID!) {
+    getAllCoupons(id: $id) {
+      id
+      couponId
+      couponName
+      couponGroup
+      couponCategory
+      imgData
+      createdAt
+      updatedAt
+      owner
+    }
+  }
+`;
+export const listAllCoupons = /* GraphQL */ `
+  query ListAllCoupons(
+    $filter: ModelallCouponsFilterInput
+    $limit: Int
+    $nextToken: String
+  ) {
+    listAllCoupons(filter: $filter, limit: $limit, nextToken: $nextToken) {
+      items {
+        id
+        couponId
+        couponName
+        couponGroup
+        couponCategory
+        imgData
         createdAt
         updatedAt
         owner

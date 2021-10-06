@@ -21,9 +21,17 @@ type Metrics
   id: ID!
   email: String!
   date: AWSDate!
-  startTime: AWSTime!
-  endTime: AWSTime!
-  distanceInMeters: Int!
+  startTime: AWSDateTime!
+  endTime: AWSDateTime!
+  description: String
+  dailySteps: Int!
+  deltaSteps: Int!
+  dailyDist: Float!
+  deltaDist: Float!
+  latitude: Float!
+  longitude: Float! 
+  deltaLocDist: Float! 
+  deviceToken: String!
 }
 
 type Coupons
@@ -44,5 +52,6 @@ type Coupons
   imgData: String!
   type: String
   name: String
+  state: Int
   validDate: AWSDate
 }

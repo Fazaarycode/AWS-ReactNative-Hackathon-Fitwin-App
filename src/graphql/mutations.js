@@ -57,7 +57,14 @@ export const createMetrics = /* GraphQL */ `
       date
       startTime
       endTime
-      distanceInMeters
+      description
+      dailySteps
+      deltaSteps
+      dailyDist
+      deltaDist
+      latitude
+      longitude
+      deltaLocDist
       createdAt
       updatedAt
       owner
@@ -75,7 +82,14 @@ export const updateMetrics = /* GraphQL */ `
       date
       startTime
       endTime
-      distanceInMeters
+      description
+      dailySteps
+      deltaSteps
+      dailyDist
+      deltaDist
+      latitude
+      longitude
+      deltaLocDist
       createdAt
       updatedAt
       owner
@@ -93,7 +107,14 @@ export const deleteMetrics = /* GraphQL */ `
       date
       startTime
       endTime
-      distanceInMeters
+      description
+      dailySteps
+      deltaSteps
+      dailyDist
+      deltaDist
+      latitude
+      longitude
+      deltaLocDist
       createdAt
       updatedAt
       owner
@@ -116,6 +137,7 @@ export const createCoupons = /* GraphQL */ `
       imgData
       type
       name
+      state
       validDate
       createdAt
       updatedAt
@@ -139,6 +161,7 @@ export const updateCoupons = /* GraphQL */ `
       imgData
       type
       name
+      state
       validDate
       createdAt
       updatedAt
@@ -162,7 +185,62 @@ export const deleteCoupons = /* GraphQL */ `
       imgData
       type
       name
+      state
       validDate
+      createdAt
+      updatedAt
+      owner
+    }
+  }
+`;
+export const createAllCoupons = /* GraphQL */ `
+  mutation CreateAllCoupons(
+    $input: CreateAllCouponsInput!
+    $condition: ModelallCouponsConditionInput
+  ) {
+    createAllCoupons(input: $input, condition: $condition) {
+      id
+      couponId
+      couponName
+      couponGroup
+      couponCategory
+      imgData
+      createdAt
+      updatedAt
+      owner
+    }
+  }
+`;
+export const updateAllCoupons = /* GraphQL */ `
+  mutation UpdateAllCoupons(
+    $input: UpdateAllCouponsInput!
+    $condition: ModelallCouponsConditionInput
+  ) {
+    updateAllCoupons(input: $input, condition: $condition) {
+      id
+      couponId
+      couponName
+      couponGroup
+      couponCategory
+      imgData
+      createdAt
+      updatedAt
+      owner
+    }
+  }
+`;
+export const deleteAllCoupons = /* GraphQL */ `
+  mutation DeleteAllCoupons(
+    $input: DeleteAllCouponsInput!
+    $condition: ModelallCouponsConditionInput
+  ) {
+    deleteAllCoupons(input: $input, condition: $condition) {
+      id
+      couponId
+      couponName
+      couponGroup
+      couponCategory
+      imgData
       createdAt
       updatedAt
       owner

@@ -14,6 +14,13 @@
     "categories": {
       "auth": {
         "fitwin18c0521a": {}
+      },
+      "notifications": {
+        "Pinpoint": {
+          "Name": "fitwinXN3M7-dev",
+          "Id": "9e190e1bf5b24b929790908e8367a33e",
+          "Region": "us-east-1"
+        }
       }
     }
   }
