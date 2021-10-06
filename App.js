@@ -9,6 +9,7 @@ import { withAuthenticator } from 'aws-amplify-react-native';
 import { Auth } from 'aws-amplify';
 import MyProfile from './src/screens/my-profile-screen';
 import PreferenceScreen from './src/screens/preferences-screen';
+import TestScreen from './src/screens/test-screen';
 
 import { ToastProvider, useToast } from 'react-native-toast-notifications';
 
@@ -140,6 +141,17 @@ const App = () => {
             component={PreferenceScreen}
             options={{
               title: 'Add Preferences',
+              headerStyle: {
+                backgroundColor: '#ff9300',
+              },
+            }}
+          />
+          <Stack.Screen
+            name="TestScreen"
+            buttonStyle={styles.addButton}
+            component={TestScreen}
+            options={{
+              title: 'Test Screen',
               headerStyle: {
                 backgroundColor: '#ff9300',
               },

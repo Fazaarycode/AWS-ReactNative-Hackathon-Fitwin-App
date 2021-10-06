@@ -528,27 +528,38 @@ const HomeScreen = observer((props) => {
     ]
   };
 
-  
+  const vGraphAxisStyle = {
+    axis: {stroke: "#bebebe", fill: '#bebebe',},
+    axisLabel: {
+      padding: 35,
+      fill: '#bebebe',
+      stroke: '#bebebe',
+      fontFamily: 'Verdana',
+      fontSize: 15,
+    },
+    ticks: {stroke: "#bebebe", fill: '#bebebe', size: 5},
+    tickLabels: {stroke: "#bebebe", fill: '#bebebe', size: 10}
+  };
     
   const vGraph = (gBarChartData &&
     <View style={{
-      backgroundColor: '#fafafa',
+      // backgroundColor: '#fafafa',
+      backgroundColor: 'transparent',
       paddingTop: 10,
       borderRadius: 25,
       margin: 20,
     }}>
     <VictoryChart
-      domainPadding={{ x: 15 }}      
+      domainPadding={{ x: 15 }}   
     >
-      <VictoryAxis label="Week" />
+      <VictoryAxis 
+        label="Week" 
+        style={vGraphAxisStyle}
+      />
       <VictoryAxis
         dependentAxis
         label="Count"
-        style={{
-          axisLabel: {
-            padding: 35,
-          },
-        }}
+        style={vGraphAxisStyle}
       />
 
       <VictoryGroup offset={10}>
@@ -729,7 +740,7 @@ const vPie1 = (
           <>
             <Text>{`Notification DB ${notificationDb.length} messages!`}</Text>
             <Text>{`Clicked ${count} times!`}</Text>
-            <Button title="Increment" onPress={increment} />
+            <Button title="tryGetCoupons" onPress={tryGetCoupons} />
             <Button title="getWeekHealthData" onPress={getWeekHealthData} />
             <Button title="debugStepsStore" onPress={showStepsDB} />
             <Button title="showCurMetric" onPress={getCurrentStepDistMetric} />
@@ -745,7 +756,7 @@ const vPie1 = (
 
 const { width } = Dimensions.get('window');
 const styles = StyleSheet.create({    
-  
+
   slideContainer: { flex: 1, backgroundColor: 'blue', width, height: 300},
   slideChild: { width, height: 300, justifyContent: 'center' },
   slideText: { fontSize: width * 0.2, textAlign: 'center' },  
@@ -758,11 +769,13 @@ const styles = StyleSheet.create({
   },
   userNameTitle: {
     fontSize: 30,
+    fontStyle: "italic",
     fontWeight: "500",
     fontFamily: "Verdana",
     textAlign: "left",
-    color: "#e5ebf2",
-    marginLeft: 20,
+    // color: "#e5ebf2",
+    color: "#bebebe",
+    marginLeft: 40,
   },  
   sectionTitle: {
     fontSize: 30,
