@@ -12,7 +12,6 @@ import PreferenceScreen from './src/screens/preferences-screen';
 
 import { ToastProvider } from 'react-native-toast-notifications'
 
-
 const App = () => {
   const Stack = createStackNavigator();
 
