@@ -65,6 +65,7 @@ export const createMetrics = /* GraphQL */ `
       latitude
       longitude
       deltaLocDist
+      deviceToken
       createdAt
       updatedAt
       owner
@@ -90,6 +91,7 @@ export const updateMetrics = /* GraphQL */ `
       latitude
       longitude
       deltaLocDist
+      deviceToken
       createdAt
       updatedAt
       owner
@@ -115,6 +117,7 @@ export const deleteMetrics = /* GraphQL */ `
       latitude
       longitude
       deltaLocDist
+      deviceToken
       createdAt
       updatedAt
       owner

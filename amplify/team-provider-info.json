@@ -21,6 +21,12 @@
           "Id": "9e190e1bf5b24b929790908e8367a33e",
           "Region": "us-east-1"
         }
+      },
+      "storage": {
+        "fitwin2471ff29": {
+          "bucketName": "awsrn-runtimeterror",
+          "region": "us-east-1"
+        }
       }
     }
   }

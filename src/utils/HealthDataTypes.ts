@@ -37,6 +37,7 @@ export interface FWStepData {
   latitude: number;
   longitude: number;  
   deltaLocDist: number;
+  deviceToken: string;
   createdAt?: string;
   updatedAt?: string;
   owner?: string;
