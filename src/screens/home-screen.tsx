@@ -27,6 +27,8 @@ import { createMetrics, updateMetrics, updateCoupons } from '../graphql/mutation
 import { FWConstants } from '../config/constants';
 import { getISODaysAgoString, distanceBetweenTwoPoints } from '../utils/helper';
 
+import FazWidget from './faz-widget';
+
 import {
   VictoryChart,
   VictoryGroup,
@@ -50,7 +52,7 @@ const debugUser = true;
 const debugNotif = true;
 const debugHealthKit = false;
 const debugSendMetric = false;
-const debugBarcharts = false;
+const debugBarcharts = true;
 const debugLocation = false;
 const debugStorage = false;
 const debugCoupons = true;
@@ -770,118 +772,132 @@ const HomeScreen = observer((props) => {
   // render()
   //====================================================================================================
 
-  return (
-  <>
-    <StatusBar barStyle="dark-content" />
-    <SafeAreaView>
-      <ScrollView style={{backgroundColor: '#1f3690'}}>
-        <View style={{flexDirection: 'column', justifyContent: 'center'}}>            
-          <Text style={styles.userNameTitle}>{userData?.username||'User'}</Text>
-          {/* { <ProgressChart
-            data={chartData}
-            width={400}
-            height={220}
-            strokeWidth={16}
-            radius={64}
-            chartConfig={chartConfig}
-            hideLegend={true}
-          />
-          <View style={styles.stepTextBlock}>
-            <Text style={styles.stepText}>{stepsInAWeek} steps</Text>
-            <Text style={styles.stepText2}>{stepsPercent}%</Text>
-          </View> } */}
+  const jWidget = (
+    <>
+      <StatusBar barStyle="dark-content" />
+      <SafeAreaView>
+        <ScrollView style={{backgroundColor: '#1f3690'}}>
+          <View style={{flexDirection: 'column', justifyContent: 'center'}}>            
+            <Text style={styles.userNameTitle}>{userData?.username||'User'}</Text>
+            {/* { <ProgressChart
+              data={chartData}
+              width={400}
+              height={220}
+              strokeWidth={16}
+              radius={64}
+              chartConfig={chartConfig}
+              hideLegend={true}
+            />
+            <View style={styles.stepTextBlock}>
+              <Text style={styles.stepText}>{stepsInAWeek} steps</Text>
+              <Text style={styles.stepText2}>{stepsPercent}%</Text>
+            </View> } */}
+            
+            {vGraph}
+            
+          </View>
           
-          {vGraph}
-          
-        </View>
-        
-        {
-        <View>
-          <Text style={styles.sectionTitle}>Coupons</Text>
-          {/* <SwiperFlatList
-            autoplay
-            autoplayDelay={2} 
-            autoplayLoop index={0} 
-            showPagination
-            data={coupons}         
-            renderItem={({ item }) => (
-              <View style={[styles.slideChild, { backgroundColor: 'transparent' }]}>                
-                <Image          
-                  style={styles.slideImage}
-                  source={{uri: `data:${item.contentType};base64,${item.imgData}`}}
-                />
-              </View>
-            )}
-          >
-          </SwiperFlatList> */}
-          <SwiperFlatList
-            // autoplay
-            // autoplayDelay={2} 
-            // autoplayLoop index={0} 
-            showPagination
-            data={userCoupons}         
-            renderItem={({ item }) => (
-              <View style={[styles.slideChild, { backgroundColor: 'transparent' }]}>                
-                <TouchableOpacity style={{position: 'relative'}} onPress={() => {
-                  setSelectedCouponId(item.id);
-                  setShowDialog(true);
-                  }}>
+          {
+          <View>
+            <Text style={styles.sectionTitle}>Coupons</Text>
+            {/* <SwiperFlatList
+              autoplay
+              autoplayDelay={2} 
+              autoplayLoop index={0} 
+              showPagination
+              data={coupons}         
+              renderItem={({ item }) => (
+                <View style={[styles.slideChild, { backgroundColor: 'transparent' }]}>                
                   <Image          
                     style={styles.slideImage}
-                    // source={{uri: `data:${item.contentType};base64,${item.imgData}`}}
-                    source={{
-                      uri: item._url
-                    }}
-                  />                    
-                  {isCouponUsedById(item.id) && 
-                    <View
-                      style={{
-                        // zIndex:1,
-                        position: 'absolute',
-                        top: 0,
-                        bottom: 0,
-                        right: 0,
-                        left: 0,
-                        backgroundColor: "rgba(255,255,255,0.8)",
+                    source={{uri: `data:${item.contentType};base64,${item.imgData}`}}
+                  />
+                </View>
+              )}
+            >
+            </SwiperFlatList> */}
+            <SwiperFlatList
+              // autoplay
+              // autoplayDelay={2} 
+              // autoplayLoop index={0} 
+              showPagination
+              data={userCoupons}         
+              renderItem={({ item }) => (
+                <View style={[styles.slideChild, { backgroundColor: 'transparent' }]}>                
+                  <TouchableOpacity style={{position: 'relative'}} onPress={() => {
+                    setSelectedCouponId(item.id);
+                    setShowDialog(true);
+                    }}>
+                    <Image          
+                      style={styles.slideImage}
+                      // source={{uri: `data:${item.contentType};base64,${item.imgData}`}}
+                      source={{
+                        uri: item._url
                       }}
-                    />
-                  }
-                </TouchableOpacity>
-              </View>
-            )}
-          >
-          </SwiperFlatList>
-        </View>        
-        }
-        
-        {debugFrame && 
-          <>
-            <Text>{`Notification DB ${notificationDb.length} messages!`}</Text>
-            <Text>{`Clicked ${count} times!`}</Text>
-            <Button title="initCouponImagesFromStorage" onPress={initCouponImagesFromStorage} />
-            <Button title="tryGetCoupons" onPress={tryGetCoupons} />
-            <Button title="getWeekHealthData" onPress={getWeekHealthData} />
-            <Button title="debugStepsStore" onPress={showStepsDB} />
-            <Button title="showCurMetric" onPress={getCurrentStepDistMetric} />
-            <Button title="getCurrentLocation" onPress={getCurrentLocation} />        
-            <Button title="sendPushNotifEvent" onPress={sendPushNotifEvent} />        
-                
-            {/* <Button title="sendmetrics" onPress={sendMetrics} /> */}
-          </>
-        }
-      </ScrollView>
+                    />                    
+                    {isCouponUsedById(item.id) && 
+                      <View
+                        style={{
+                          // zIndex:1,
+                          position: 'absolute',
+                          top: 0,
+                          bottom: 0,
+                          right: 0,
+                          left: 0,
+                          backgroundColor: "rgba(255,255,255,0.8)",
+                        }}
+                      />
+                    }
+                  </TouchableOpacity>
+                </View>
+              )}
+            >
+            </SwiperFlatList>
+          </View>        
+          }
+          
+          {debugFrame && 
+            <>
+              <Text>{`Notification DB ${notificationDb.length} messages!`}</Text>
+              <Text>{`Clicked ${count} times!`}</Text>
+              <Button title="initCouponImagesFromStorage" onPress={initCouponImagesFromStorage} />
+              <Button title="tryGetCoupons" onPress={tryGetCoupons} />
+              <Button title="getWeekHealthData" onPress={getWeekHealthData} />
+              <Button title="debugStepsStore" onPress={showStepsDB} />
+              <Button title="showCurMetric" onPress={getCurrentStepDistMetric} />
+              <Button title="getCurrentLocation" onPress={getCurrentLocation} />        
+              <Button title="sendPushNotifEvent" onPress={sendPushNotifEvent} />        
+                  
+              {/* <Button title="sendmetrics" onPress={sendMetrics} /> */}
+            </>
+          }
+        </ScrollView>
+  
+        <Dialog.Container visible={showDialog}>
+          <Dialog.Title>{isCouponUsedById(selectedCouponId)?'Used Coupon':'Use Coupon'}</Dialog.Title>
+          <Dialog.Description>
+            {isCouponUsedById(selectedCouponId)?'Coupon already used!':'Do you want to use this coupon?'}
+          </Dialog.Description>
+          <Dialog.Button label="Cancel" onPress={handleCancelCoupon} />
+          {!isCouponUsedById(selectedCouponId) && <Dialog.Button label="Use" onPress={handleUseCoupon} />}
+        </Dialog.Container>
+      </SafeAreaView>
+    </>
+    );
+const payload={steps: 9876, chartData: gBarChartData};
 
-      <Dialog.Container visible={showDialog}>
-        <Dialog.Title>{isCouponUsedById(selectedCouponId)?'Used Coupon':'Use Coupon'}</Dialog.Title>
-        <Dialog.Description>
-          {isCouponUsedById(selectedCouponId)?'Coupon already used!':'Do you want to use this coupon?'}
-        </Dialog.Description>
-        <Dialog.Button label="Cancel" onPress={handleCancelCoupon} />
-        {!isCouponUsedById(selectedCouponId) && <Dialog.Button label="Use" onPress={handleUseCoupon} />}
-      </Dialog.Container>
+let xaxis = [];
+let yval = [];
+if (gBarChartData) {
+ xaxis = gBarChartData.steps.map(item => item.x);
+ yval = gBarChartData.steps.map(item => item.y);
+}
+
+  return (<>
+    <SafeAreaView>
+    <FazWidget payload={JSON.stringify(payload)} xaxis={xaxis} yval={yval}/>
     </SafeAreaView>
-  </>
-  );
+    </>);
 });
 
 //====================================================================================================
