@@ -1,9 +1,10 @@
 import React, {useEffect, useState} from 'react';
-import { Auth, API, graphqlOperation, Storage } from 'aws-amplify';
+import { Auth, API, graphqlOperation, Storage, Analytics } from 'aws-amplify';
 import {SafeAreaView, StatusBar, Text, StyleSheet, TouchableOpacity, View, Button, Image, Dimensions, ScrollView} from 'react-native';
 import { FWCoupon, FWHealthData, FWHealthTarget, FWStepData, FWUserData } from '../utils/HealthDataTypes';
 import AppleHealthKitWrapper from '../utils/AppleHealthKitWrapper';
 import * as Location from 'expo-location';
+import Dialog from "react-native-dialog";
 // import {CircularProgressBar} from '../components/CircularProgressBar';
 
 // import * as BackgroundFetch from 'expo-background-fetch';
@@ -21,7 +22,8 @@ import { SwiperFlatList } from 'react-native-swiper-flatlist';
 import { useNotificationStore } from '../utils/notification.store';
 
 import { listCoupons } from '../graphql/queries';
-import { createMetrics } from '../graphql/mutations';
+import { createMetrics, updateMetrics, updateCoupons } from '../graphql/mutations';
+// import * as mutations from '../graphql/mutations';
 import { FWConstants } from '../config/constants';
 import { getISODaysAgoString, distanceBetweenTwoPoints } from '../utils/helper';
 
@@ -98,6 +100,10 @@ const HomeScreen = observer((props) => {
   const [prevStepData, setPrevStepData] = useState(getInitialStepData());
   const [timeLeft, setTimeLeft] = useState(0);
   const [gBarChartData, setGBarChartData] = useState<any>();
+  const [pref, setPref] = useState(['Jabc']);
+  const [showDialog, setShowDialog] = useState(false);
+  const [selectedCouponId, setSelectedCouponId] = useState<string|undefined>();
+  
 
   useEffect(() => {
     if (debugUI) console.log(`FITWIN > HomeScreen > START`);
@@ -109,6 +115,7 @@ const HomeScreen = observer((props) => {
 
     tryObtainLocationPermission();
 
+    
     // initCouponImagesFromStorage();
 
     if (debugUI) console.log(`FITWIN > HomeScreen > END`);
@@ -121,7 +128,7 @@ const HomeScreen = observer((props) => {
     if (userData) {
       console.log(`FITWIN > user = ${userData.username}, ${userData.email}`);
       // let's kick off the timer for sending data
-      setTimeLeft(10);
+      // setTimeLeft(10);
 
       // load coupons
       tryGetCoupons();
@@ -186,6 +193,51 @@ const HomeScreen = observer((props) => {
   // Need to retreive target data HERE
   const stepsTarget:FWHealthTarget = {valid: true, targetValue: 10000};
   const distTarget:FWHealthTarget = {valid: true, targetValue: 10000};
+
+
+  const sendPushNotifEvent = async () => {
+    await Analytics.updateEndpoint({
+      address: 'b61e7b9465d63955320133feb0fba6aac4b567c68f5a49464e250f6c8064d4b0', // could be a device token, email address, or mobile phone number.
+      attributes: {
+          // Custom attributes that your app reports to Amazon Pinpoint. You can use these attributes as selection criteria when you create a segment.
+          hobbies: [...pref],
+          voucher_claim: ['not_claimed'],
+          status: ['target_complete']
+          
+      },
+      channelType: 'APNS', // The channel type. Valid values: APNS, GCM
+      /** Indicates whether a user has opted out of receiving messages with one of the following values:
+          * ALL - User has opted out of all messages.
+          * NONE - Users has not opted out and receives all messages.
+          */
+      optOut: 'NONE',
+      // Customized userId
+      // User attributes
+      userId: "johnmclee",
+      userAttributes: {
+          interests: [...pref],
+          // ...
+      },
+          // Buffer settings used for reporting analytics events.
+          // OPTIONAL - The buffer size for events in number of items.
+          bufferSize: 1000,
+
+          // OPTIONAL - The interval in milliseconds to perform a buffer check and flush if necessary.
+          flushInterval: 5000, // 5s 
+
+          // OPTIONAL - The number of events to be deleted from the buffer when flushed.
+          flushSize: 100,
+
+          // OPTIONAL - The limit for failed recording retries.
+          resendLimit: 5
+
+    }).then(async () => {
+      await Analytics.record({ name: "target_done", attributes: { id: 'johnmclee' } })
+      console.log('Event sent!^^')
+    }).catch(e => console.log(e));
+
+  }
+
 
   
   // TODO >>>>
@@ -338,6 +390,45 @@ const HomeScreen = observer((props) => {
     }
 
   }
+
+  const tryUpdateCoupon = async (couponId: string) => {
+    try {
+      const response = await API.graphql(
+        {
+          query: updateCoupons,
+          variables: {
+            input: {
+              id: couponId,
+              email: userData.email,
+              state: 7,
+            }
+          }
+        }
+        // graphqlOperation(updateMetrics, {
+        //   input: {
+        //     id: couponId,
+        //     email: userData.email,
+        //     state: 7,
+        //   }
+        // })
+      );
+      console.log(`tryUpdateCoupon > response = ${JSON.stringify(response,null,2)}`);
+    }
+    catch (err) {
+      console.log('tryUpdateCoupon > Failed operation. ', err)
+    }
+  }
+
+  const isCouponUsedById = (couponId:string) => {
+    const cId = userCoupons.findIndex(c => c.id === couponId);
+    if (cId >= 0) {
+      return (userCoupons[cId]?.state > 0);
+    }
+    return false;
+    
+  } 
+
+  
 
   const tryObtainLocationPermission = async () => {
     let { status } = await Location.requestForegroundPermissionsAsync();
@@ -528,9 +619,45 @@ const HomeScreen = observer((props) => {
 
   const stepsPercent = Math.floor(stepsInAWeek * 100 / stepsTarget.targetValue);
     
+  const handleCancelCoupon = () => {
+    console.log(`FITWIN > handleCancelCoupon = ${selectedCouponId}`);
+    setShowDialog(false);
+    setSelectedCouponId('');
+  }
+
+  const handleUseCoupon = async () => {
+    console.log(`FITWIN > handleUseCoupon = ${selectedCouponId}`);
+    try {
+      await tryUpdateCoupon(selectedCouponId);
+      await tryGetCoupons();
+    }
+    catch (err) {
+      console.log(`handleUserCoupon > error = ${err}`);
+    }
+    setShowDialog(false);
+    setSelectedCouponId('');
+  }
+
   //====================================================================================================
   // Graph related
   //====================================================================================================
+
+//   const yyydata = {
+//     labels: ["Swim", "Bike", "Run"], // optional
+//     data: [0.4, 0.6, 0.8]
+//   };
+
+//   <ProgressChart
+//   data={data}
+//   width={screenWidth}
+//   height={220}
+//   strokeWidth={16}
+//   radius={32}
+//   chartConfig={chartConfig}
+//   hideLegend={false}
+// />
+
+
 
   // setup charts
   const chartData = {
@@ -650,7 +777,7 @@ const HomeScreen = observer((props) => {
       <ScrollView style={{backgroundColor: '#1f3690'}}>
         <View style={{flexDirection: 'column', justifyContent: 'center'}}>            
           <Text style={styles.userNameTitle}>{userData?.username||'User'}</Text>
-          {/* <ProgressChart
+          {/* { <ProgressChart
             data={chartData}
             width={400}
             height={220}
@@ -662,7 +789,7 @@ const HomeScreen = observer((props) => {
           <View style={styles.stepTextBlock}>
             <Text style={styles.stepText}>{stepsInAWeek} steps</Text>
             <Text style={styles.stepText2}>{stepsPercent}%</Text>
-          </View> */}
+          </View> } */}
           
           {vGraph}
           
@@ -695,13 +822,31 @@ const HomeScreen = observer((props) => {
             data={userCoupons}         
             renderItem={({ item }) => (
               <View style={[styles.slideChild, { backgroundColor: 'transparent' }]}>                
-                <Image          
-                  style={styles.slideImage}
-                  // source={{uri: `data:${item.contentType};base64,${item.imgData}`}}
-                  source={{
-                    uri: item._url
-                  }}
-                />
+                <TouchableOpacity style={{position: 'relative'}} onPress={() => {
+                  setSelectedCouponId(item.id);
+                  setShowDialog(true);
+                  }}>
+                  <Image          
+                    style={styles.slideImage}
+                    // source={{uri: `data:${item.contentType};base64,${item.imgData}`}}
+                    source={{
+                      uri: item._url
+                    }}
+                  />                    
+                  {isCouponUsedById(item.id) && 
+                    <View
+                      style={{
+                        // zIndex:1,
+                        position: 'absolute',
+                        top: 0,
+                        bottom: 0,
+                        right: 0,
+                        left: 0,
+                        backgroundColor: "rgba(255,255,255,0.8)",
+                      }}
+                    />
+                  }
+                </TouchableOpacity>
               </View>
             )}
           >
@@ -718,11 +863,22 @@ const HomeScreen = observer((props) => {
             <Button title="getWeekHealthData" onPress={getWeekHealthData} />
             <Button title="debugStepsStore" onPress={showStepsDB} />
             <Button title="showCurMetric" onPress={getCurrentStepDistMetric} />
-            <Button title="getCurrentLocation" onPress={getCurrentLocation} />            
+            <Button title="getCurrentLocation" onPress={getCurrentLocation} />        
+            <Button title="sendPushNotifEvent" onPress={sendPushNotifEvent} />        
+                
             {/* <Button title="sendmetrics" onPress={sendMetrics} /> */}
           </>
         }
       </ScrollView>
+
+      <Dialog.Container visible={showDialog}>
+        <Dialog.Title>{isCouponUsedById(selectedCouponId)?'Used Coupon':'Use Coupon'}</Dialog.Title>
+        <Dialog.Description>
+          {isCouponUsedById(selectedCouponId)?'Coupon already used!':'Do you want to use this coupon?'}
+        </Dialog.Description>
+        <Dialog.Button label="Cancel" onPress={handleCancelCoupon} />
+        {!isCouponUsedById(selectedCouponId) && <Dialog.Button label="Use" onPress={handleUseCoupon} />}
+      </Dialog.Container>
     </SafeAreaView>
   </>
   );
