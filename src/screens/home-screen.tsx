@@ -1,21 +1,15 @@
 import React, {useEffect, useState} from 'react';
-import { Auth, API, graphqlOperation } from 'aws-amplify';
+import { Auth, API, graphqlOperation, Storage, Analytics } from 'aws-amplify';
 import {SafeAreaView, StatusBar, Text, StyleSheet, TouchableOpacity, View, Button, Image, Dimensions, ScrollView} from 'react-native';
-import { FWCoupon, FWHealthData, FWHealthTarget, FWStepData } from '../utils/HealthDataTypes';
+import { FWCoupon, FWHealthData, FWHealthTarget, FWStepData, FWUserData } from '../utils/HealthDataTypes';
 import AppleHealthKitWrapper from '../utils/AppleHealthKitWrapper';
 import * as Location from 'expo-location';
+import Dialog from "react-native-dialog";
+// import {CircularProgressBar} from '../components/CircularProgressBar';
 
-import * as BackgroundFetch from 'expo-background-fetch';
-import * as TaskManager from 'expo-task-manager';
+// import * as BackgroundFetch from 'expo-background-fetch';
+// import * as TaskManager from 'expo-task-manager';
 
-import {
-  LineChart,
-  BarChart,
-  PieChart,
-  ProgressChart,
-  ContributionGraph,
-  StackedBarChart
-} from "react-native-chart-kit";
 
 import { observer } from 'mobx-react-lite';
 
@@ -28,28 +22,54 @@ import { SwiperFlatList } from 'react-native-swiper-flatlist';
 import { useNotificationStore } from '../utils/notification.store';
 
 import { listCoupons } from '../graphql/queries';
-import { createMetrics } from '../graphql/mutations';
+import { createMetrics, updateMetrics, updateCoupons } from '../graphql/mutations';
+// import * as mutations from '../graphql/mutations';
 import { FWConstants } from '../config/constants';
 import { getISODaysAgoString, distanceBetweenTwoPoints } from '../utils/helper';
+
+import {
+  VictoryChart,
+  VictoryGroup,
+  VictoryBar,
+  VictoryLegend,
+  VictoryAxis,
+  VictoryPie,
+  VictoryAnimation,
+  VictoryLabel,
+// } from 'victory';
+} from 'victory-native';
+
+import { useDistStore } from '../utils/dist.store';
 
 //====================================================================================================
 const BACKGROUND_FETCH_TASK = 'background-fetch';
 
 const debugFrame = true;
+const debugUI = false;
+const debugUser = true;
+const debugNotif = true;
+const debugHealthKit = false;
+const debugSendMetric = false;
+const debugBarcharts = false;
+const debugLocation = false;
+const debugStorage = false;
+const debugCoupons = true;
 
+//====================================================================================================
 
 const HomeScreen = observer((props) => {
   
-  const [userData, setUserData] = useState<any>({});
-  const { count, increment, decrement } = useCounterStore(); // OR useContext(CounterStoreContext)
-  const { stepsDb, setSteps, getSteps } = useStepStore(); // OR useContext(CounterStoreContext)
+  const [userData, setUserData] = useState<FWUserData|undefined>();
+  const { count, devToken, increment, decrement } = useCounterStore(); // OR useContext(CounterStoreContext)
+  const { stepsDb, setSteps, getSteps } = useStepStore(); // 
+  const { distDb, setDist, getDist } = useDistStore(); // 
   const { notificationDb, notificationCount, popNotification, tryPop } = useNotificationStore(); // OR useContext(CounterStoreContext)
   const [location, setLocation] = useState(null);
-  const [locationPermission, setLocationPermission] = useState(false);
+  // const [locationPermission, setLocationPermission] = useState(false);
 
   const loadInitialCoupons = ():FWCoupon[] => {
     const {coupons} = configData;
-    // console.log(`John > configData=${JSON.stringify(coupons,null,2)}`);
+    
     const couponsTyped = coupons.map((x:any) => x as FWCoupon);
     return couponsTyped;
   }
@@ -57,7 +77,7 @@ const HomeScreen = observer((props) => {
   const getInitialStepData = ():FWStepData => {
     return {
       id: 0,
-      email: userData.email,
+      email: "",
       date: "",
       startTime: "",
       endTime: "",
@@ -67,62 +87,99 @@ const HomeScreen = observer((props) => {
       deltaDist: 0,
       latitude: 0,
       longitude: 0,
+      deltaLocDist: 0,
+      deviceToken: '',
     };
   }
   
   const [stepsData, setStepsData] = useState<FWHealthData>({valid: false, value: 0, startDate: null, endDate: null});
   const [distData, setDistData] = useState<FWHealthData>({valid: false, value: 0, startDate: null, endDate: null});
-  const [coupons, setCoupons] = useState(loadInitialCoupons());
+  // const [coupons, setCoupons] = useState(loadInitialCoupons());
+  const [couponImages, setCouponImages] = useState([]);
+  const [userCoupons, setUserCoupons] = useState([]);
   const [prevStepData, setPrevStepData] = useState(getInitialStepData());
   const [timeLeft, setTimeLeft] = useState(0);
+  const [gBarChartData, setGBarChartData] = useState<any>();
+  const [pref, setPref] = useState(['Jabc']);
+  const [showDialog, setShowDialog] = useState(false);
+  const [selectedCouponId, setSelectedCouponId] = useState<string|undefined>();
+  
 
   useEffect(() => {
-    console.log(`FITWIN > HomeScreen > START`);
+    if (debugUI) console.log(`FITWIN > HomeScreen > START`);
 
     fetchUserData();
 
     tryInitAppleHealthKit();
     // refreshHealthData();
 
-    tryGetCoupons();
-
     tryObtainLocationPermission();
-    setTimeLeft(10);
 
-    console.log(`FITWIN > HomeScreen > END`);
+    
+    // initCouponImagesFromStorage();
+
+    if (debugUI) console.log(`FITWIN > HomeScreen > END`);
 
   }, []);
 
   useEffect(() => {
-    console.log(`FITWIN > NEW Notificaiton changes! START`);
-    console.log(JSON.stringify(notificationDb,null,2));
+    // userData has changed
+    if (debugUser) console.log(`FITWIN > User Changed START`);
+    if (userData) {
+      console.log(`FITWIN > user = ${userData.username}, ${userData.email}`);
+      // let's kick off the timer for sending data
+      // setTimeLeft(10);
+
+      // load coupons
+      tryGetCoupons();
+    }
+    if (debugUser) console.log(`FITWIN > User Changed END`);
+  }, [userData]);
+
+  // for notif
+  useEffect(() => {
+    if (debugNotif) console.log(`FITWIN > NEW Notificaiton changes! START`);
+    if (debugNotif) console.log(JSON.stringify(notificationDb,null,2));
 
     // try pop
     const thisNotif = tryPop();
     if (thisNotif) {
-      console.log(`Show Toast!`);
+      if (debugNotif) console.log(`Show Toast!`);
       // popNotification();
     }
     
-    console.log(`FITWIN > NEW Notificaiton changes! END`);
+    if (debugNotif) console.log(`FITWIN > NEW Notificaiton changes! END`);
   }, [notificationCount]);
 
   const calculateTimeLeft = () => {
     return timeLeft + 10; // increment 10s to cause 
   }
 
+  // timer for sending data
   useEffect(() => {
     let timer:NodeJS.Timeout;
     if (timeLeft > 0) {
-      timer = setTimeout(() => {
+      timer = setTimeout( async () => {
+
+        // execute an update action
+        const {statsChanged, locationChanged} = await getCurrentStepDistMetric();
+
+        if (debugSendMetric) console.log(`useEffect[timeLeft] > getCurrentStepDistMetric > {${statsChanged},${locationChanged}}`);
+
+        if (statsChanged) {
+          const barChartData = await getWeekHealthData();
+          console.log(`💜💜💜💜 barChartData changed! => ${JSON.stringify(barChartData,null,2)}`);
+          setGBarChartData(barChartData);
+        }
+
+        // house keeping
         const thisTimeLeft = calculateTimeLeft();
-        getCurrentStepDistMetric();
         setTimeLeft(thisTimeLeft);
-        console.log(`Timer executed ✅✅✅✅`);
+        console.log(`Timer executed 🧡🧡🧡🧡`);
       }, FWConstants.PERIOD_SEND_HEALTHDATE);
     }    
     else {
-      console.log(`Timer Expired! 🛑🛑🛑🛑`);
+      console.log(`Timer Expired! ⏰⏰⏰⏰`);
     }
     
     // clear timeout if the component is unmounted
@@ -137,16 +194,69 @@ const HomeScreen = observer((props) => {
   const stepsTarget:FWHealthTarget = {valid: true, targetValue: 10000};
   const distTarget:FWHealthTarget = {valid: true, targetValue: 10000};
 
+
+  const sendPushNotifEvent = async () => {
+    await Analytics.updateEndpoint({
+      address: 'b61e7b9465d63955320133feb0fba6aac4b567c68f5a49464e250f6c8064d4b0', // could be a device token, email address, or mobile phone number.
+      attributes: {
+          // Custom attributes that your app reports to Amazon Pinpoint. You can use these attributes as selection criteria when you create a segment.
+          hobbies: [...pref],
+          voucher_claim: ['not_claimed'],
+          status: ['target_complete']
+          
+      },
+      channelType: 'APNS', // The channel type. Valid values: APNS, GCM
+      /** Indicates whether a user has opted out of receiving messages with one of the following values:
+          * ALL - User has opted out of all messages.
+          * NONE - Users has not opted out and receives all messages.
+          */
+      optOut: 'NONE',
+      // Customized userId
+      // User attributes
+      userId: "johnmclee",
+      userAttributes: {
+          interests: [...pref],
+          // ...
+      },
+          // Buffer settings used for reporting analytics events.
+          // OPTIONAL - The buffer size for events in number of items.
+          bufferSize: 1000,
+
+          // OPTIONAL - The interval in milliseconds to perform a buffer check and flush if necessary.
+          flushInterval: 5000, // 5s 
+
+          // OPTIONAL - The number of events to be deleted from the buffer when flushed.
+          flushSize: 100,
+
+          // OPTIONAL - The limit for failed recording retries.
+          resendLimit: 5
+
+    }).then(async () => {
+      await Analytics.record({ name: "target_done", attributes: { id: 'johnmclee' } })
+      console.log('Event sent!^^')
+    }).catch(e => console.log(e));
+
+  }
+
+
   
   // TODO >>>>
 
   const fetchUserData = async () => {
     // You can await here
     const data = await Auth.currentAuthenticatedUser();
-    setUserData(data.attributes);
+    if (debugUser) console.log(`🏠🏠🏠 User Data > ${JSON.stringify(data,null,2)}`);
+    
+    setUserData({
+      username: data.username,
+      email: data.attributes.email,
+      sub: data.attributes.sub
+    });
   }
 
   const tryInitAppleHealthKit = async () => {
+
+    if (debugHealthKit) console.log(`tryInitAppleHealthKit START`);
 
     await AppleHealthKitWrapper.init();
     await AppleHealthKitWrapper.getAuthStatus();
@@ -158,54 +268,167 @@ const HomeScreen = observer((props) => {
     const todayObj = new Date();
 
     const todayStr = todayObj.toISOString().split('T')[0];
-    console.log(`todayStr = ${todayStr}`);
+    if (debugHealthKit) console.log(`todayStr = ${todayStr}`);
     
-    const yesterdayObj = new Date(todayObj.valueOf() - (24 * 60 * 60 * 1000));
-    const yesterdayStr = yesterdayObj.toISOString().split('T')[0];
-    console.log(`yesterdayStr = ${yesterdayStr}`);
-
     for (let i = 0; i < 10; i += 1) {
       // going from today, query health kit for data and then set to store
       const iDateObj = new Date(todayObj.valueOf() - (i * 24 * 60 * 60 * 1000));
       const iDateStr = iDateObj.toISOString().split('T')[0];
-      console.log(`${i} dateLabelStr = ${iDateStr}`);
+      if (debugHealthKit) console.log(`${i} dateLabelStr = ${iDateStr}`);
 
       const iStep = await AppleHealthKitWrapper.getStepCount(iDateObj);
-      console.log(`${i} HealthKit: stepCount=${JSON.stringify(iStep,null,2)}`);      
+      if (debugHealthKit) console.log(`${i} HealthKit: stepCount=${JSON.stringify(iStep,null,2)}`);      
       let iStepHealthData = iStep as FWHealthData;
 
-
       setSteps(iDateStr, iStepHealthData.value);
+
+      const iDist = await AppleHealthKitWrapper.getDistanceWalkingRunning(iDateObj);
+      if (debugHealthKit) console.log(`${i} HealthKit: DistanceWalkingRunning=${JSON.stringify(iDist,null,2)}`);      
+      let iDistHealthData = iDist as FWHealthData;
+      setDist(iDateStr, iDistHealthData.value);
     }
 
-
-    // set to display
-    // const lastWeekSteps = getWeekTotalSteps();
-    // setDisplaySteps(lastWeekSteps);
-    // setDisplayStepPercent(lastWeekSteps * 100 / stepsTarget.targetValue);
-
+    // build the graph
+    const barChartData = await getWeekHealthData();
+    if (debugBarcharts) console.log(`💙💙💙💙 barChartData initialized => ${JSON.stringify(barChartData,null,2)}`);
+    setGBarChartData(barChartData);
     
     const todayDate = new Date('2021-10-03');
     const step1 = await AppleHealthKitWrapper.getStepCount(todayDate);
-    console.log(`HealthKit: stepCount=${JSON.stringify(step1,null,2)}`);
+    if (debugHealthKit) console.log(`HealthKit: stepCount=${JSON.stringify(step1,null,2)}`);
     // let step1data = {...step1};
     let step1data = step1 as FWHealthData;
     step1data.valid = true;
     setStepsData(step1data);
     
     const res2 = await AppleHealthKitWrapper.getDistanceWalkingRunning(todayDate);
-    console.log(`HealthKit: dist walking running=${JSON.stringify(res2,null,2)}`);
+    if (debugHealthKit) console.log(`HealthKit: dist walking running=${JSON.stringify(res2,null,2)}`);
     let dist1data = res2 as FWHealthData;
     dist1data.valid = true;
     setDistData(dist1data);
+
+    if (debugHealthKit) console.log(`tryInitAppleHealthKit END`);
     
+  }
+
+  const initCouponImagesFromStorage = async () => {
+    
+    // const result = await Storage.get('coupon1.png', { level: 'public' });
+    // if (debugCoupons) console.log(`initCouponImagesFromStorage > ${JSON.stringify(result,null,2)}`);
+
+    // get all the coupons in bucket 
+    try {
+      const _coupons = await Storage.list('coupons/');
+      if (debugStorage) console.log(`initCouponImagesFromStorage > promise all coupons = ${JSON.stringify(_coupons,null,2)}`);
+
+      let _bucketCouponsList = [];
+      let p = [];
+
+      for (let i = 0; i < _coupons.length; i += 1) {
+        p.push(Storage.get(_coupons[i].key, { level: 'public' }));
+      }
+
+      // wait until all the results are back
+      const resArray = await Promise.all(p);
+
+      for (let k = 0; k < _coupons.length; k += 1) {
+        _bucketCouponsList.push({
+          _url: resArray[k],
+          item: _coupons[k],
+        });
+      }
+
+      if (debugStorage) console.log(`ALL COUPONS > ${JSON.stringify(_bucketCouponsList,null,2)}`);
+      setCouponImages(_bucketCouponsList);
+    }
+    catch (err) {
+      console.log(err);
+    }
+   
   }
 
   const tryGetCoupons = async () => {
 
-    const coupons = await API.graphql(graphqlOperation(listCoupons));
-    console.log(`GRAPHQL > listCoupons = ${JSON.stringify(coupons,null,2)}`);
+    let _queryResponse:any;
+
+    if (userData && userData?.username != '') {
+      const _filter = {
+        name: {
+          eq: userData.username
+        }
+      }
+    
+      _queryResponse = await API.graphql({query: listCoupons, variables: { filter: _filter}});
+      if (debugCoupons) console.log(`GRAPHQL USER > listCoupons [${userData.username}]= ${JSON.stringify(_queryResponse,null,2)}`);
+    }
+    else {
+      _queryResponse = await API.graphql(graphqlOperation(listCoupons));
+      if (debugCoupons) console.log(`GRAPHQL ALL > listCoupons = ${JSON.stringify(_queryResponse,null,2)}`);
+    }
+
+    try {
+      let _userCoupons = JSON.parse(JSON.stringify(_queryResponse.data.listCoupons.items));
+      
+      let p = [];
+
+      for (let i = 0; i < _userCoupons.length; i += 1) {
+        p.push(Storage.get(_userCoupons[i].imgData, { level: 'public' }));
+      }
+
+      // wait until all the results are back
+      const resArray = await Promise.all(p);
+      console.log(`resArray>${JSON.stringify(resArray,null,2)}`);
+      for (let k = 0; k < _userCoupons.length; k += 1) {
+        _userCoupons[k]._url = resArray[k];
+      }
+
+      if (debugCoupons) console.log(`truGetCoupons user final > ${JSON.stringify(_userCoupons,null,2)}`);
+      setUserCoupons(_userCoupons);
+    }
+    catch (err) {
+      console.log(err);
+    }
+
   }
+
+  const tryUpdateCoupon = async (couponId: string) => {
+    try {
+      const response = await API.graphql(
+        {
+          query: updateCoupons,
+          variables: {
+            input: {
+              id: couponId,
+              email: userData.email,
+              state: 7,
+            }
+          }
+        }
+        // graphqlOperation(updateMetrics, {
+        //   input: {
+        //     id: couponId,
+        //     email: userData.email,
+        //     state: 7,
+        //   }
+        // })
+      );
+      console.log(`tryUpdateCoupon > response = ${JSON.stringify(response,null,2)}`);
+    }
+    catch (err) {
+      console.log('tryUpdateCoupon > Failed operation. ', err)
+    }
+  }
+
+  const isCouponUsedById = (couponId:string) => {
+    const cId = userCoupons.findIndex(c => c.id === couponId);
+    if (cId >= 0) {
+      return (userCoupons[cId]?.state > 0);
+    }
+    return false;
+    
+  } 
+
+  
 
   const tryObtainLocationPermission = async () => {
     let { status } = await Location.requestForegroundPermissionsAsync();
@@ -213,127 +436,171 @@ const HomeScreen = observer((props) => {
       // setErrorMsg('Permission to access location was denied');      
       return;
     }
-    console.log(`Location Permission Allowed!`);
-    setLocationPermission(true);
+    if (debugLocation) console.log(`Location Permission Allowed!`);
+    // setLocationPermission(true);
   }
 
   const getCurrentStepDistMetric = async () => {
     const todayDate = new Date();
-    console.log(`getCurrentStepDistMetric > START = ${todayDate.valueOf()}`);
+    if (debugSendMetric) console.log(`getCurrentStepDistMetric > START = ${todayDate.valueOf()}`);
     
     const step1 = await AppleHealthKitWrapper.getStepCount(todayDate);
-    console.log(`HealthKit: stepCount=${JSON.stringify(step1,null,2)}`);
+    if (debugSendMetric) console.log(`HealthKit: stepCount=${JSON.stringify(step1,null,2)}`);
     // let step1data = {...step1};
     let step1data = step1 as FWHealthData;
     step1data.valid = true;
     // setStepsData(step1data);
     
     const res2 = await AppleHealthKitWrapper.getDistanceWalkingRunning(todayDate);
-    console.log(`HealthKit: dist walking running=${JSON.stringify(res2,null,2)}`);
+    if (debugSendMetric) console.log(`HealthKit: dist walking running=${JSON.stringify(res2,null,2)}`);
     let dist1data = res2 as FWHealthData;
     dist1data.valid = true;
     // setDistData(dist1data);
-    console.log(`getCurrentStepDistMetric > END`);
+    if (debugSendMetric) console.log(`getCurrentStepDistMetric > END`);
 
     const location = await Location.getCurrentPositionAsync({});
 
-    console.log(`Obtained Location = ${JSON.stringify(location,null,2)} @${(new Date()).valueOf()}`);
+    if (debugLocation) console.log(`Obtained Location = ${JSON.stringify(location,null,2)} @${(new Date()).valueOf()}`);
 
     // only calculate distance moved if not from first pass
     const distMoved = (prevStepData.id !== 0) ? distanceBetweenTwoPoints({lat: location.coords.latitude, lng: location.coords.longitude},
                                                 {lat: prevStepData.latitude, lng: prevStepData.longitude}) 
                                                 : 0;
 
-    console.log(`DIST-MOVED = ${distMoved} @${(new Date()).valueOf()}`);
-    let isDiffVerdict = true;
-    // check whether current data is different to previous
-    switch (true) {
-      case (step1data.value !== prevStepData.dailySteps):
-        break;
-      case (dist1data.value !== prevStepData.dailyDist):
-        break;
-      case (distMoved > FWConstants.MINIMUM_DIST_MOVED):
-      // case (location.coords.latitude !== prevStepData.latitude):
-        // might need to relax later
-        // break;
-      // case (location.coords.longitude !== prevStepData.longitude):
-        // might need to relax later
-        console.log(`Larger movement than expected!`);
-        break;
-      default:
-        isDiffVerdict = false;
-        break;
+    if (debugSendMetric) console.log(`DIST-MOVED = ${distMoved} @${(new Date()).valueOf()}`);
+    
+    let _statsChanged = 0;
+    let _locationChanged = 0;
+
+    if ((step1data.value !== prevStepData.dailySteps) || (dist1data.value !== prevStepData.dailyDist)) {
+      _statsChanged += 1;
     }
 
-    if (isDiffVerdict) {    
-      // prepare payload against previous payload
-      const metricPayload:FWStepData = {
-        id: Date.now(),
-        email: userData.email,
-        date: getISODaysAgoString(todayDate, 0),
-        startTime: (prevStepData.id !== 0 ? prevStepData.endTime: todayDate.toISOString()), // previous timestamp
-        endTime: todayDate.toISOString(), // this timestamp
-        dailySteps: step1data.value,
-        deltaSteps: (prevStepData.id !== 0 ? (step1data.value - prevStepData.dailySteps): 0),
-        dailyDist: dist1data.value,
-        deltaDist: (prevStepData.id !== 0 ? (dist1data.value - prevStepData.dailyDist): 0),
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,  
-        deltaLocDist: distMoved,
-      }
-      console.log(`FITWIN > current Metric Payload = ${JSON.stringify(metricPayload,null,2)}`);
-
-      // send the payload
-      try {
-        const response = await API.graphql(
-          graphqlOperation(createMetrics, { input: {...metricPayload} })
-          );
-
-        console.log(`GRAPHQL response = ${JSON.stringify(response,null,2)}`);
-
-        if ('createdAt' in response || 'updatedAt' in response) { 
-          console.log(`GRAPHQL MUTATION createMetrics Success!`);
-        }       
-      }
-      catch (err) {
-        console.log(err);
-      }
-
-      // save over to prevStepData
-      setPrevStepData(metricPayload);
+    if (distMoved > FWConstants.MINIMUM_DIST_MOVED) {
+      _locationChanged += 1;
+      console.log(`Larger movement than expected!`);
     }
-    console.log(`getCurrentStepDistMetric > END END`);
-  }
+
+    if ((_statsChanged + _locationChanged) > 0) {
+     
+      // check email 
+      if (userData) {
+
+        // prepare payload against previous payload
+        const metricPayload:FWStepData = {
+          id: Date.now(),
+          email: userData.email,
+          date: getISODaysAgoString(todayDate, 0),
+          startTime: (prevStepData.id !== 0 ? prevStepData.endTime: todayDate.toISOString()), // previous timestamp
+          endTime: todayDate.toISOString(), // this timestamp
+          dailySteps: step1data.value,
+          deltaSteps: (prevStepData.id !== 0 ? (step1data.value - prevStepData.dailySteps): 0),
+          dailyDist: dist1data.value,
+          deltaDist: (prevStepData.id !== 0 ? (dist1data.value - prevStepData.dailyDist): 0),
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,  
+          deltaLocDist: distMoved,
+          deviceToken: devToken,
+        }
+        if (debugSendMetric) console.log(`FITWIN > current Metric Payload = ${JSON.stringify(metricPayload,null,2)}`);
+
+        // send the payload
+        try {
+          const response = await API.graphql(
+            graphqlOperation(createMetrics, { input: {...metricPayload} })
+            );
+
+            if (debugSendMetric) console.log(`GRAPHQL response = ${JSON.stringify(response,null,2)}`);
+
+          let graphQLok = false;
+          if ('data' in response && 'createMetrics' in response.data) {
+            // console.log(`GRAPHQL data reponse 1`);
+            const replyPayload = response.data['createMetrics'] as FWStepData;
+            // console.log(`GRAPHQL data reponse 2 > ${JSON.stringify(replyPayload,null,2)}`);
+            if (!!replyPayload?.createdAt && !!replyPayload?.updatedAt && replyPayload?.owner) {
+              console.log(`GRAPHQL mutation success! ✅✅✅✅`);
+              graphQLok = true;
+            }
+          }
+
+          if (!graphQLok) {
+            console.log(`GRAPHQL mutation success! ❌❌❌❌`);
+          }
+
+        }
+        catch (err) {
+          console.log(err);
+        } // end try
+
+        // save over to prevStepData
+        setPrevStepData(metricPayload);
+      } // end if userData
+      //else {
+      // userData is invalid --> don't update previous data
+      //}
+
+    } // if data changed
+    
+    if (debugSendMetric) console.log(`getCurrentStepDistMetric > END END`);
+    return {
+      statsChanged: (_statsChanged > 0),
+      locationChanged: (_locationChanged > 0),
+    };
+  } 
 
   const getCurrentLocation = async () => {
     let location = await Location.getCurrentPositionAsync({});
-    console.log(`FITWIN > Current Location = ${JSON.stringify(location,null,2)}`);
+    if (debugLocation) console.log(`FITWIN > Current Location = ${JSON.stringify(location,null,2)}`);
     setLocation(location);
   }
 
-  const getWeekTotalSteps = () => {
+  const getWeekHealthData = async () => {
     const todayObj = new Date();
 
-    const todayStr = todayObj.toISOString().split('T')[0];
-    console.log(`todayStr = ${todayStr}`);
-    let _count = 0;
+    const todayStr = getISODaysAgoString(todayObj, 0);
+    if (debugBarcharts) console.log(`todayStr = ${todayStr}`);
+
+    let barChartData = {
+      steps: [],
+      dists: [],
+    }
 
     for (let i = 0; i < FWConstants.SAMPLE_BATCH_DAYS; i += 1) {
       // going from today, query health kit for data and then set to store
-      // const iDateObj = new Date(todayObj.valueOf() - (i * 24 * 60 * 60 * 1000));
-      // const iDateStr = iDateObj.toISOString().split('T')[0];
-      let iDateStr = getISODaysAgoString(todayObj, i);
-      console.log(`${i} dateLabelStr = ${iDateStr}`);
+      const iDateObj = new Date(todayObj.valueOf() - (i * 24 * 60 * 60 * 1000));
+      const iDateStr = iDateObj.toISOString().split('T')[0];
+      if (debugBarcharts) console.log(`${i} dateLabelStr = ${iDateStr}`);
 
-      // see if it is in the store
-      if (iDateStr in stepsDb) {
-        // tally the value
-        _count += stepsDb[iDateStr];
+      // get step count
+      const iStep = await AppleHealthKitWrapper.getStepCount(iDateObj);
+      if (debugBarcharts) console.log(`${i} HealthKit: stepCount=${JSON.stringify(iStep,null,2)}`);      
+      const iStepHealthData = iStep as FWHealthData;
+
+      const iDist = await AppleHealthKitWrapper.getDistanceWalkingRunning(iDateObj);
+      if (debugBarcharts) console.log(`${i} HealthKit: dist walking running=${JSON.stringify(iDist,null,2)}`);
+      const iDistHealthData = iDist as FWHealthData;
+      
+      const dayOfTheWeek = iDateObj.getDay(); // Sunday - Saturday : 0 - 6
+
+      let dayOfTheWeekStr = '';
+      switch (dayOfTheWeek) {
+        case 0: dayOfTheWeekStr = "Sun"; break;
+        case 1: dayOfTheWeekStr = "Mon"; break;
+        case 2: dayOfTheWeekStr = "Tue"; break;
+        case 3: dayOfTheWeekStr = "Wed"; break;
+        case 4: dayOfTheWeekStr = "Thu"; break;
+        case 5: dayOfTheWeekStr = "Fri"; break;
+        case 6: dayOfTheWeekStr = "Sat"; break;
+        default: break;
       }
 
+      barChartData.steps.unshift({x: dayOfTheWeekStr, y: Math.floor(iStepHealthData.value)});
+      barChartData.dists.unshift({x: dayOfTheWeekStr, y: Math.floor(iDistHealthData.value / 1000)});
       
     }
-    return _count;
+
+    if (debugBarcharts) console.log(`barChartData = ${JSON.stringify(barChartData,null,2)}`);
+    return barChartData;
   }
 
 
@@ -346,63 +613,171 @@ const HomeScreen = observer((props) => {
     }
   }
 
-  // const refreshHealthData = async (numDays: number) => {
-  //   const todayDate = new Date();
-  //   let yesterdayDate = new Date();
-  //   yesterdayDate.setDate(todayDate.getDate() - 1);
 
-  //   const step1 = await AppleHealthKitWrapper.getStepCount(todayDate);
-  //   console.log(`HealthKit: stepCount=${JSON.stringify(step1,null,2)}`);
-  //   // let step1data = {...step1};
-  //   let step1data = step1 as FWHealthData;
-  //   step1data.valid = true;
-  //   setStepsData(step1data);
+  const stepsInAWeek = 100;//getWeekHealthData();
+  if (debugUI) console.log(`John > 1 week of steps = ${stepsInAWeek}`);
 
-  //   const res2 = await AppleHealthKitWrapper.getDistanceWalkingRunning(todayDate);
-  //   console.log(`HealthKit: dist walking running=${JSON.stringify(res2,null,2)}`);
-  //   let dist1data = res2 as FWHealthData;
-  //   dist1data.valid = true;
-  //   setDistData(dist1data);
-  // }
-
-  const stepsInAWeek = getWeekTotalSteps();
-  console.log(`John > 1 week of steps = ${stepsInAWeek}`);
-
-
-  // calculate step related features
-  // const numSteps = stepsData?.value||0;
-  
   const stepsPercent = Math.floor(stepsInAWeek * 100 / stepsTarget.targetValue);
-  
+    
+  const handleCancelCoupon = () => {
+    console.log(`FITWIN > handleCancelCoupon = ${selectedCouponId}`);
+    setShowDialog(false);
+    setSelectedCouponId('');
+  }
+
+  const handleUseCoupon = async () => {
+    console.log(`FITWIN > handleUseCoupon = ${selectedCouponId}`);
+    try {
+      await tryUpdateCoupon(selectedCouponId);
+      await tryGetCoupons();
+    }
+    catch (err) {
+      console.log(`handleUserCoupon > error = ${err}`);
+    }
+    setShowDialog(false);
+    setSelectedCouponId('');
+  }
+
+  //====================================================================================================
+  // Graph related
+  //====================================================================================================
+
+//   const yyydata = {
+//     labels: ["Swim", "Bike", "Run"], // optional
+//     data: [0.4, 0.6, 0.8]
+//   };
+
+//   <ProgressChart
+//   data={data}
+//   width={screenWidth}
+//   height={220}
+//   strokeWidth={16}
+//   radius={32}
+//   chartConfig={chartConfig}
+//   hideLegend={false}
+// />
+
+
+
   // setup charts
   const chartData = {
     labels: ["Step"], // optional
     data: [stepsPercent]
   };
 
-  const barChartData = {
-    labels: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
-    datasets: [
-      {
-        data: [10, 20, 45, 28, 80, 99, 43]
-      }
+  const barChartData1:any =
+  {
+    "steps": [
+      {x: "Wed", y: 134},
+      {x: "Thu", y: 0},
+      {x: "Fri", y: 0},
+      {x: "Sat", y: 80},
+      {x: "Sun", y: 170},
+      {x: "Mon", y: 44},
+      {x: "Tue", y: 205}
+    ],
+    "dists": [
+      {x: "Wed", y: 100},
+      {x: "Thu", y: 5},
+      {x: "Fri", y: 10},
+      {x: "Sat", y: 0},
+      {x: "Sun", y: 1},
+      {x: "Mon", y: 27},
+      {x: "Tue", y: 25}
     ]
   };
 
-  console.log(`Coupon number of  = ${coupons.length}`);
-  const colors = ['tomato', 'thistle', 'skyblue', 'teal'];
-  
-  
+  const vGraphAxisStyle = {
+    axis: {stroke: "#bebebe", fill: '#bebebe',},
+    axisLabel: {
+      padding: 35,
+      fill: '#bebebe',
+      stroke: '#bebebe',
+      fontFamily: 'Verdana',
+      fontSize: 15,
+    },
+    ticks: {stroke: "#bebebe", fill: '#bebebe', size: 5},
+    tickLabels: {stroke: "#bebebe", fill: '#bebebe', size: 10}
+  };
     
+  const vGraph = (gBarChartData &&
+    <View style={{
+      // backgroundColor: '#fafafa',
+      backgroundColor: 'transparent',
+      paddingTop: 10,
+      borderRadius: 25,
+      margin: 20,
+    }}>
+    <VictoryChart
+      domainPadding={{ x: 15 }}   
+    >
+      <VictoryAxis 
+        label="Week" 
+        style={vGraphAxisStyle}
+      />
+      <VictoryAxis
+        dependentAxis
+        label="Count"
+        style={vGraphAxisStyle}
+      />
+
+      <VictoryGroup offset={10}>
+        <VictoryBar
+          data={gBarChartData.steps}
+          // x={'day'}
+          // y={'val'}
+          style={{
+            data: {
+              fill: "#e66084",
+            },
+          }}
+        />     
+        <VictoryBar
+          data={gBarChartData.dists}
+          // x={'day'}
+          // y={'val'}
+          style={{
+            data: {
+              fill: "#5344c2", //blue-ish
+            },
+          }}
+        />
+      </VictoryGroup>
+      <VictoryLegend
+        x={Dimensions.get('screen').width / 2 -100}
+        orientation="horizontal"
+        gutter={20}
+        data={[
+          {
+            name: 'Steps',
+            symbol: {
+              fill: '#e66084',
+            },
+          },
+          {
+            name: 'Distance (km)',
+            symbol: {
+              fill: '#5344c2', //blue-ish
+            },
+          },
+        ]}
+      />
+    </VictoryChart>
+    </View>
+  );
+
+  //====================================================================================================
+  // render()
+  //====================================================================================================
 
   return (
   <>
     <StatusBar barStyle="dark-content" />
     <SafeAreaView>
-      <ScrollView>
+      <ScrollView style={{backgroundColor: '#1f3690'}}>
         <View style={{flexDirection: 'column', justifyContent: 'center'}}>            
-          <Text style={styles.sectionTitle}>Steps Goal Attained</Text>
-          <ProgressChart
+          <Text style={styles.userNameTitle}>{userData?.username||'User'}</Text>
+          {/* { <ProgressChart
             data={chartData}
             width={400}
             height={220}
@@ -414,36 +789,23 @@ const HomeScreen = observer((props) => {
           <View style={styles.stepTextBlock}>
             <Text style={styles.stepText}>{stepsInAWeek} steps</Text>
             <Text style={styles.stepText2}>{stepsPercent}%</Text>
-          </View>
-          {/* <BarChart
-            // style={graphStyle}
-            data={barChartData}
-            width={400}
-            height={220}
-            yAxisLabel={""}
-            yAxisSuffix={""}
-            chartConfig={chartConfig}
-            verticalLabelRotation={30}
-          /> */}
+          </View> } */}
+          
+          {vGraph}
+          
         </View>
-        {distData.valid &&
-        <>
-          <Text style={styles.sectionTitle}>Distance Goal</Text>
-          <Text style={styles.distText}>{distData.value} km</Text>
-        </>
-        }
+        
         {
         <View>
           <Text style={styles.sectionTitle}>Coupons</Text>
-          <SwiperFlatList
+          {/* <SwiperFlatList
             autoplay
             autoplayDelay={2} 
             autoplayLoop index={0} 
             showPagination
             data={coupons}         
             renderItem={({ item }) => (
-              <View style={[styles.slideChild, { backgroundColor: 'transparent' }]}>
-                {/* <Text style={styles.slideText}>{item}</Text> */}
+              <View style={[styles.slideChild, { backgroundColor: 'transparent' }]}>                
                 <Image          
                   style={styles.slideImage}
                   source={{uri: `data:${item.contentType};base64,${item.imgData}`}}
@@ -451,45 +813,84 @@ const HomeScreen = observer((props) => {
               </View>
             )}
           >
+          </SwiperFlatList> */}
+          <SwiperFlatList
+            // autoplay
+            // autoplayDelay={2} 
+            // autoplayLoop index={0} 
+            showPagination
+            data={userCoupons}         
+            renderItem={({ item }) => (
+              <View style={[styles.slideChild, { backgroundColor: 'transparent' }]}>                
+                <TouchableOpacity style={{position: 'relative'}} onPress={() => {
+                  setSelectedCouponId(item.id);
+                  setShowDialog(true);
+                  }}>
+                  <Image          
+                    style={styles.slideImage}
+                    // source={{uri: `data:${item.contentType};base64,${item.imgData}`}}
+                    source={{
+                      uri: item._url
+                    }}
+                  />                    
+                  {isCouponUsedById(item.id) && 
+                    <View
+                      style={{
+                        // zIndex:1,
+                        position: 'absolute',
+                        top: 0,
+                        bottom: 0,
+                        right: 0,
+                        left: 0,
+                        backgroundColor: "rgba(255,255,255,0.8)",
+                      }}
+                    />
+                  }
+                </TouchableOpacity>
+              </View>
+            )}
+          >
           </SwiperFlatList>
         </View>        
         }
-        {false && coupons.length > 0 && 
-          <>
-            <Text style={styles.sectionTitle}>Coupons</Text>
-            <Image
-              // style={{width: coupons[0].width, height: coupons[0].height}}
-              style={{width: 300, height: 200, resizeMode:"contain"}}
-              source={{uri: `data:${coupons[0].contentType};base64,${coupons[0].imgData}`}}
-            />
-            <Image
-              // style={{width: coupons[0].width, height: coupons[0].height}}
-              style={{width: 300, height: 200, resizeMode:"contain"}}
-              source={{uri: `data:${coupons[1].contentType};base64,${coupons[1].imgData}`}}
-            />
-          </>
-        }
+        
         {debugFrame && 
           <>
             <Text>{`Notification DB ${notificationDb.length} messages!`}</Text>
             <Text>{`Clicked ${count} times!`}</Text>
-            <Button title="Increment" onPress={increment} />
-            <Button title="Decrement" onPress={decrement} />
+            <Button title="initCouponImagesFromStorage" onPress={initCouponImagesFromStorage} />
+            <Button title="tryGetCoupons" onPress={tryGetCoupons} />
+            <Button title="getWeekHealthData" onPress={getWeekHealthData} />
             <Button title="debugStepsStore" onPress={showStepsDB} />
             <Button title="showCurMetric" onPress={getCurrentStepDistMetric} />
-            <Button title="getCurrentLocation" onPress={getCurrentLocation} />
+            <Button title="getCurrentLocation" onPress={getCurrentLocation} />        
+            <Button title="sendPushNotifEvent" onPress={sendPushNotifEvent} />        
+                
             {/* <Button title="sendmetrics" onPress={sendMetrics} /> */}
           </>
         }
       </ScrollView>
+
+      <Dialog.Container visible={showDialog}>
+        <Dialog.Title>{isCouponUsedById(selectedCouponId)?'Used Coupon':'Use Coupon'}</Dialog.Title>
+        <Dialog.Description>
+          {isCouponUsedById(selectedCouponId)?'Coupon already used!':'Do you want to use this coupon?'}
+        </Dialog.Description>
+        <Dialog.Button label="Cancel" onPress={handleCancelCoupon} />
+        {!isCouponUsedById(selectedCouponId) && <Dialog.Button label="Use" onPress={handleUseCoupon} />}
+      </Dialog.Container>
     </SafeAreaView>
   </>
   );
 });
 
+//====================================================================================================
+// Styles
+//====================================================================================================
+
 const { width } = Dimensions.get('window');
 const styles = StyleSheet.create({    
-  
+
   slideContainer: { flex: 1, backgroundColor: 'blue', width, height: 300},
   slideChild: { width, height: 300, justifyContent: 'center' },
   slideText: { fontSize: width * 0.2, textAlign: 'center' },  
@@ -500,15 +901,22 @@ const styles = StyleSheet.create({
   baseText: {
     fontFamily: "Verdana-BoldItalic"
   },
+  userNameTitle: {
+    fontSize: 30,
+    fontStyle: "italic",
+    fontWeight: "500",
+    fontFamily: "Verdana",
+    textAlign: "left",
+    // color: "#e5ebf2",
+    color: "#bebebe",
+    marginLeft: 40,
+  },  
   sectionTitle: {
     fontSize: 30,
     fontWeight: "bold",
     fontFamily: "Verdana-BoldItalic",
     textAlign: "center",
-    // position: 'absolute', 
-    // right: 0,
-    // left: 20,
-    // top: 0,
+    color: "#bebebe",    
   },
   stepTextBlock: {
     position: 'absolute', 
@@ -518,19 +926,13 @@ const styles = StyleSheet.create({
   stepText: {
     fontSize: 20,
     fontWeight: "bold",
-    fontFamily: "Verdana-BoldItalic",
-    // position: 'absolute', 
-    // right: 0,
-    // top: 50,
+    fontFamily: "Verdana-BoldItalic",    
   },
   stepText2: {
     fontSize: 20,
     fontWeight: "bold",
     fontFamily: "Verdana-BoldItalic",
     textAlign: "right",
-    // position: 'absolute', 
-    // right: 0,
-    // top: 50,
   },
   distText: {
     fontSize: 50,
@@ -539,7 +941,7 @@ const styles = StyleSheet.create({
     backgroundColor: "pink",
   }
 });
-//#a34075
+
 const chartConfig = {
   backgroundGradientFrom: "#a34075",
   backgroundGradientFromOpacity: 0,

@@ -1,27 +1,33 @@
 {
-    "dev": {
-        "awscloudformation": {
-            "AuthRoleName": "amplify-fitwin-dev-194938-authRole",
-            "UnauthRoleArn": "arn:aws:iam::571747411449:role/amplify-fitwin-dev-194938-unauthRole",
-            "AuthRoleArn": "arn:aws:iam::571747411449:role/amplify-fitwin-dev-194938-authRole",
-            "Region": "us-east-1",
-            "DeploymentBucketName": "amplify-fitwin-dev-194938-deployment",
-            "UnauthRoleName": "amplify-fitwin-dev-194938-unauthRole",
-            "StackName": "amplify-fitwin-dev-194938",
-            "StackId": "arn:aws:cloudformation:us-east-1:571747411449:stack/amplify-fitwin-dev-194938/9fc684b0-22c2-11ec-a384-0eee651db65d",
-            "AmplifyAppId": "d12lcd30o3y7ro"
-        },
-        "categories": {
-            "auth": {
-                "fitwin18c0521a": {}
-            },
-            "notifications": {
-                "Pinpoint": {
-                    "Name": "fitwinXN3M7-dev",
-                    "Id": "9e190e1bf5b24b929790908e8367a33e",
-                    "Region": "us-east-1"
-                }
-            }
+  "dev": {
+    "awscloudformation": {
+      "AuthRoleName": "amplify-fitwin-dev-194938-authRole",
+      "UnauthRoleArn": "arn:aws:iam::571747411449:role/amplify-fitwin-dev-194938-unauthRole",
+      "AuthRoleArn": "arn:aws:iam::571747411449:role/amplify-fitwin-dev-194938-authRole",
+      "Region": "us-east-1",
+      "DeploymentBucketName": "amplify-fitwin-dev-194938-deployment",
+      "UnauthRoleName": "amplify-fitwin-dev-194938-unauthRole",
+      "StackName": "amplify-fitwin-dev-194938",
+      "StackId": "arn:aws:cloudformation:us-east-1:571747411449:stack/amplify-fitwin-dev-194938/9fc684b0-22c2-11ec-a384-0eee651db65d",
+      "AmplifyAppId": "d12lcd30o3y7ro"
+    },
+    "categories": {
+      "auth": {
+        "fitwin18c0521a": {}
+      },
+      "notifications": {
+        "Pinpoint": {
+          "Name": "fitwinXN3M7-dev",
+          "Id": "9e190e1bf5b24b929790908e8367a33e",
+          "Region": "us-east-1"
         }
+      },
+      "storage": {
+        "fitwin2471ff29": {
+          "bucketName": "awsrn-runtimeterror",
+          "region": "us-east-1"
+        }
+      }
     }
+  }
 }

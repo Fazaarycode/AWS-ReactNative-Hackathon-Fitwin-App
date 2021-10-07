@@ -4,12 +4,15 @@ import { makeObservable, action, observable } from 'mobx';
 
 class CounterStore {
   count = 0;
+  devToken = '';
 
   constructor() {
     makeObservable(this, {
       count: observable,
+      devToken: observable,
       increment: action.bound,
-      decrement: action.bound
+      decrement: action.bound,
+      saveToken: action.bound,
     })
   }
 
@@ -19,6 +22,10 @@ class CounterStore {
 
   decrement() {
     this.count -= 1;
+  }
+
+  saveToken(token) {
+    this.devToken = token;
   }
 }
 
