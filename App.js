@@ -106,7 +106,7 @@ const App = () => {
               title: 'Home',
               headerStyle: {
                 // backgroundColor: '#ff9300',
-                backgroundColor: '#a34075',
+                backgroundColor: '#7165E3',
               },
               headerRight: () => (
                 <TouchableOpacity
@@ -133,7 +133,7 @@ const App = () => {
             options={{
               title: 'My Profile',
               headerStyle: {
-                backgroundColor: '#ff9300',
+                backgroundColor: '#7165E3',
               },
             }}
           />
@@ -144,7 +144,7 @@ const App = () => {
             options={{
               title: 'Add Preferences',
               headerStyle: {
-                backgroundColor: '#ff9300',
+                backgroundColor: '#7165E3',
               },
             }}
           />

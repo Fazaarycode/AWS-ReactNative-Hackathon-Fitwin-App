@@ -12,6 +12,27 @@ import { ToastProvider, useToast } from "react-native-toast-notifications";
 let data ;
 
 const Preferences = ({ navigation }) => {
+
+  const preferencesList = [
+    "Sports",
+    "Indian Grocery",
+    "Italian Restaurants",
+    "Chinese Restaurants",
+    "Gym and Fitness",
+    "Music and Concerts",
+    "Fast Foods",
+    "All Grocery",
+    "Gaming",
+    "Clubs & Lounges",
+    "Retail Store",
+    "Appliances",
+    "Indian Restaurants",
+    "Frozen Food",
+    "Standups",
+    "Movies"    
+]
+
+
     const userList = [
         "Sports",
         "Indian Grocery",
@@ -38,10 +59,10 @@ const Preferences = ({ navigation }) => {
             data = await Auth.currentAuthenticatedUser();
             setUserData(data.attributes);
             // Get current user's preferences if exists already.   
-            const res = await API.graphql(graphqlOperation(getPreferences, {id: data.attributes.sub}));
-            setPreviousPreference(JSON.parse(res.data.getPreferences.preferences));
-            console.log(JSON.parse(res.data.getPreferences.preferences))
-            forceRender({});
+            // const res = await API.graphql(graphqlOperation(getPreferences, {id: data.attributes.sub}));
+            // setPreviousPreference(JSON.parse(res.data.getPreferences.preferences));
+            // console.log(JSON.parse(res.data.getPreferences.preferences))
+            // forceRender({});
 
         }
         fetchUserData();
@@ -53,7 +74,7 @@ const Preferences = ({ navigation }) => {
         <View>
             <ScrollView>
                 <CustomMultiPicker
-                    options={userList}
+                    options={preferencesList}
                     search={true} // should show search bar?
                     multiple={true} //
                     placeholder={"Search"}
@@ -69,9 +90,12 @@ const Preferences = ({ navigation }) => {
                     iconSize={30}
                     selectedIconName={"ios-checkmark-circle-outline"}
                     unselectedIconName={"ios-radio-button-off-outline"}
-                    scrollViewHeight={400}
+                    scrollViewHeight={500}
                     // selected = {['Italian Restaurants', 'Gym and Fitness']}
-                    // selected = {previousPref}
+                    selected = {[preferencesList[0],
+                      preferencesList[1],
+                      preferencesList[4],
+                      preferencesList[6]]}
                 />
             </ScrollView>
             <View style={styles.container}>

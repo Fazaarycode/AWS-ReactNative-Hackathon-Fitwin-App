@@ -11,10 +11,7 @@ import {
 } from "react-native-chart-kit";
 import { ConsoleLogger } from '@aws-amplify/core';
 
-const data = {
-  labels: ["Swim"], // optional
-  data: [0.8]
-};
+
 
 
 const FazWidget = (props) => {
@@ -53,17 +50,31 @@ const FazWidget = (props) => {
     chartData1.datasets[0].data = yValArray;
   }
 
-
-  // // .map(item => item.x);
-  // console.log(`xxx array = ${JSON.stringify(xAxisArray,null,2)}`);
-
-  // makeChartData(props);
+  let displayDistToday = 0;
+  if (props.distData && props.distData.valid)   {
+    displayDistToday = Math.floor(props.distData.value / 1000);
+  }
   
-  
+  let displayStepsToday = 0;
+  let displayStepsRatio = 0;
+  let displayStepsPercent = 0;
+  const stepsTarget = 10000;
 
-  
-  
 
+  if (props.stepsData && props.stepsData.valid)   {
+    displayStepsToday = props.stepsData.value;
+    displayStepsRatio = displayStepsToday / stepsTarget;
+    displayStepsPercent = Math.floor(displayStepsRatio * 100);
+  }
+
+  const pieData = {
+    labels: ["Steps"], // optional
+    data: [displayStepsRatio]
+  };
+
+  console.log(`zzz dist = ${displayDistToday}km`);
+  console.log(`qqq steps = ${displayStepsToday}, ${displayStepsPercent}%`);
+  calories = 70;
 
   // try {
   //   xAxisArray = props.chartdata.steps.map(item => item.x);
@@ -83,7 +94,7 @@ const FazWidget = (props) => {
         <Text style={
           styles.textHeader
         }>
-          You walked <Text style={styles.highlight}>XXXXX</Text> steps today
+          You walked <Text style={styles.highlight}>{displayStepsToday}</Text> steps today
         </Text>
 
         {/* X is a State var */}
@@ -91,7 +102,7 @@ const FazWidget = (props) => {
         <Text style={
           styles.infoTip
         }>
-          X % of daily goal
+          {displayStepsPercent} % of daily goal
         </Text>
 
         {/* Show Distance Walked */}
@@ -99,34 +110,35 @@ const FazWidget = (props) => {
         <Text style={
           styles.distanceWalkedKM
         }>
-          {'X'}
+          {displayDistToday}
         </Text>
 
         <Text style={
           styles.distanceWalkedSupportText
         }>
-          {'Distance covered (kms)'}
+          {'Distance covered (km)'}
         </Text>
 
         {/* Calories or any other measurement - Hardcode if not available */}
+        <>
+          <Text style={
+            styles.calories
+          }>
+            {calories}
+          </Text>
 
-        <Text style={
-          styles.calories
-        }>
-          {'X'}
-        </Text>
-
-        <Text style={
-          styles.caloriesSupportText
-        }>
-          {'Cal Burned'}
-        </Text>
+          <Text style={
+            styles.caloriesSupportText
+          }>
+            {'Cal Burned'}
+          </Text>
+        </>
     
         <View>
           <ProgressChart
-            data={data}
+            data={pieData}
             width={Dimensions.get("window").width} // Code your Screen Width
-            height={300}
+            height={250}
             strokeWidth={6}
             radius={60}
             chartConfig={
@@ -197,7 +209,7 @@ const styles = StyleSheet.create({
     // marginRight: 5,
     position: 'absolute',
     left: 140,
-    top: 110,
+    top: 90,
     zIndex: 99
   },
   textHeader: {
@@ -211,7 +223,7 @@ const styles = StyleSheet.create({
   },
   infoTip: {
     position: 'absolute',
-    top: 150,
+    top: 130,
     left: 130,
     zIndex: 9,
     textAlign: 'center',
@@ -228,7 +240,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16,
     position: 'absolute',
-    top: 250,
+    top: 200,
     left: 30,
     zIndex: 9,
   },
@@ -236,7 +248,7 @@ const styles = StyleSheet.create({
     color: "grey",
     fontSize: 12,
     position: 'absolute',
-    top: 270,
+    top: 220,
     left: 30,
     zIndex: 9,
   },
@@ -245,7 +257,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16,
     position: 'absolute',
-    top: 250,
+    top: 200,
     right: 30,
     zIndex: 9,
   },
@@ -253,7 +265,7 @@ const styles = StyleSheet.create({
     color: "grey",
     fontSize: 12,
     position: 'absolute',
-    top: 270,
+    top: 220,
     right: 30,
     zIndex: 9,
   }
