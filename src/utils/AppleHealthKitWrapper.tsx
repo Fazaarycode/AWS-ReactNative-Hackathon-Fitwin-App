@@ -9,7 +9,7 @@ import AppleHealthKit, {
 const permissions = {
   permissions: {
     read: [
-      // AppleHealthKit.Constants.Permissions.ActiveEnergyBurned,
+      AppleHealthKit.Constants.Permissions.ActiveEnergyBurned,
       // AppleHealthKit.Constants.Permissions.ActivitySummary,
       // AppleHealthKit.Constants.Permissions.AllergyRecord,
       AppleHealthKit.Constants.Permissions.BasalEnergyBurned,
@@ -189,6 +189,21 @@ class AppleHealthKitWrapper {
         },
       )
     })
+  }
+
+  getActiveEnergyBurned = (startDate: Date) => {
+    return new Promise((resolve, reject) => {
+      AppleHealthKit.getActiveEnergyBurned(
+        {startDate: startDate.toISOString()},
+        (err: Object, results: HealthValue[]) => {
+          if (err) {
+            return reject(err)
+          }
+          // console.log(results)
+          resolve(results)
+        },
+      )
+    });
   }
 
   getDailyStepCountSamples = (startDate: Date, endDate: Date) => {

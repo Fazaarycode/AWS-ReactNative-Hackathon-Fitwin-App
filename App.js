@@ -31,11 +31,11 @@ const App = () => {
 
     console.log(`FITWIN remote > notification = ${JSON.stringify(notification,null,2)}`);
 
-    const notificationPayload = JSON.parse(notification._alert.body);
+    // const notificationPayload = JSON.parse(notification._alert.body);
 
-    const strMsg = `${notification._alert.title} - ${notificationPayload.name}`;
-    console.log(`FITIN remote > notification strMsg = [${strMsg}], couponId=[${notificationPayload.couponId}]`);
-    pushNotification(notification._alert); // fire a state change
+    // const strMsg = `${notification._alert.title} - ${notificationPayload.name}`;
+    // console.log(`FITIN remote > notification strMsg = [${strMsg}], couponId=[${notificationPayload.couponId}]`);
+    // pushNotification(notification._alert); // fire a state change
     // toast.show(strMsg, {
     //   type: "custom1",
     //   placement: "top",
@@ -106,7 +106,7 @@ const App = () => {
               title: 'Home',
               headerStyle: {
                 // backgroundColor: '#ff9300',
-                backgroundColor: '#a34075',
+                backgroundColor: '#7165E3',
               },
               headerRight: () => (
                 <TouchableOpacity
@@ -133,7 +133,7 @@ const App = () => {
             options={{
               title: 'My Profile',
               headerStyle: {
-                backgroundColor: '#ff9300',
+                backgroundColor: '#7165E3',
               },
             }}
           />
@@ -144,7 +144,7 @@ const App = () => {
             options={{
               title: 'Add Preferences',
               headerStyle: {
-                backgroundColor: '#ff9300',
+                backgroundColor: '#7165E3',
               },
             }}
           />
